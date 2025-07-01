@@ -40,6 +40,9 @@ use Text_Diff;
 use Text_Diff_Renderer;
 use WP_Text_Diff_Renderer_Table;
 
+// Include the Digest helper class
+require_once __DIR__ . '/includes/class-digest.php';
+
 add_action( 'wp_dashboard_setup', function() {
 	add_meta_box(
 		'revisions_digest_dashboard',
@@ -102,7 +105,7 @@ function widget( $no_idea, array $meta_box ) {
 }
 
 /**
- * Undocumented function
+ * Get digest changes (backward compatibility function)
  *
  * @return array[] {
  *     Array of data about the changes.
@@ -120,45 +123,32 @@ function widget( $no_idea, array $meta_box ) {
  * }
  */
 function get_digest_changes() : array {
-	$time     = strtotime( '-1 week' );
-	$modified = get_updated_posts( $time );
-	$changes  = [];
+	$digest = new Digest();
+	return $digest->get_changes();
+}
 
-	foreach ( $modified as $i => $modified_post_id ) {
-		$revisions = get_post_revisions( $modified_post_id, $time );
-		if ( empty( $revisions ) ) {
-			continue;
-		}
+/**
+ * Get digest changes for a specific period
+ *
+ * @param string $period Time period (day, week, month).
+ * @param string $group_by How to group results.
+ * @return array Digest changes.
+ */
+function get_digest_changes_for_period( string $period = Digest::PERIOD_WEEK, string $group_by = Digest::GROUP_BY_POST ) : array {
+	$digest = new Digest( $period, $group_by );
+	return $digest->get_changes();
+}
 
-		if ( ! class_exists( 'WP_Text_Diff_Renderer_Table', false ) ) {
-			require_once ABSPATH . WPINC . '/wp-diff.php';
-		}
-
-		// @TODO this includes the author of the first revision, which it should not
-		$authors = array_unique( array_map( 'intval', wp_list_pluck( $revisions, 'post_author' ) ) );
-		$bounds  = get_bound_revisions( $revisions );
-		$diff    = get_diff( $bounds['latest'], $bounds['earliest'] );
-
-		$renderer = new WP_Text_Diff_Renderer_Table( [
-			'show_split_view'        => false,
-			'leading_context_lines'  => 1,
-			'trailing_context_lines' => 1,
-		] );
-		$rendered = render_diff( $diff, $renderer );
-
-		$data = [
-			'post_id'  => $modified_post_id,
-			'latest'   => $bounds['latest'],
-			'earliest' => $bounds['earliest'],
-			'diff'     => $diff,
-			'rendered' => $rendered,
-			'authors'  => $authors,
-		];
-
-		$changes[] = $data;
-	}
-
-	return $changes;
+/**
+ * Get digest changes with intelligent descriptions
+ *
+ * @param string $period Time period (day, week, month).
+ * @param string $group_by How to group results.
+ * @return array Digest changes with descriptions.
+ */
+function get_digest_with_descriptions( string $period = Digest::PERIOD_WEEK, string $group_by = Digest::GROUP_BY_POST ) : array {
+	$digest = new Digest( $period, $group_by );
+	return $digest->get_grouped_changes();
 }
 
 /**
