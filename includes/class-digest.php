@@ -63,7 +63,7 @@ class Digest {
 	 * @param string   $group_by  How to group results.
 	 * @param int|null $timeframe Custom timeframe timestamp.
 	 */
-	public function __construct( string $period = self::PERIOD_WEEK, string $group_by = self::GROUP_BY_POST, int $timeframe = null ) {
+	public function __construct( string $period = self::PERIOD_WEEK, string $group_by = self::GROUP_BY_POST, ?int $timeframe = null ) {
 		$this->period           = $period;
 		$this->group_by         = $group_by;
 		$this->custom_timeframe = $timeframe;
