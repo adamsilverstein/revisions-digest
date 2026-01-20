@@ -304,13 +304,17 @@ class Digest {
 			case self::GROUP_BY_TAXONOMY:
 				// Get all taxonomies for the post
 				$terms = [];
-				$taxonomies = get_object_taxonomies( get_post_type( $change['post_id'] ) );
+				$post_type = get_post_type( $change['post_id'] );
 				
-				foreach ( $taxonomies as $taxonomy ) {
-					$post_terms = get_the_terms( $change['post_id'], $taxonomy );
-					if ( ! empty( $post_terms ) && ! is_wp_error( $post_terms ) ) {
-						foreach ( $post_terms as $term ) {
-							$terms[] = $term->name;
+				if ( $post_type ) {
+					$taxonomies = get_object_taxonomies( $post_type );
+					
+					foreach ( $taxonomies as $taxonomy ) {
+						$post_terms = get_the_terms( $change['post_id'], $taxonomy );
+						if ( ! empty( $post_terms ) && ! is_wp_error( $post_terms ) ) {
+							foreach ( $post_terms as $term ) {
+								$terms[] = $term->name;
+							}
 						}
 					}
 				}

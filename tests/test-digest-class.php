@@ -56,16 +56,16 @@ class Test_Digest_Class extends TestCase {
 
 		// Create two revisions for this post
 		wp_update_post( [
-			'ID'           => $post->ID,
-			'post_content' => 'Updated content v1',
-			'post_modified'=> date( 'Y-m-d H:i:s', $four_days_ago + 3600 ),
+			'ID'            => $post->ID,
+			'post_content'  => 'Updated content v1',
+			'post_modified' => date( 'Y-m-d H:i:s', $four_days_ago + 3600 ),
 		] );
 		wp_save_post_revision( $post->ID );
 
 		wp_update_post( [
-			'ID'           => $post->ID,
-			'post_content' => 'Updated content v2',
-			'post_modified'=> date( 'Y-m-d H:i:s', $four_days_ago + 7200 ),
+			'ID'            => $post->ID,
+			'post_content'  => 'Updated content v2',
+			'post_modified' => date( 'Y-m-d H:i:s', $four_days_ago + 7200 ),
 		] );
 		wp_save_post_revision( $post->ID );
 
