@@ -747,3 +747,93 @@ function send_digest_email( string $subscription_id ) : bool {
 
 	return $sent;
 }
+
+/**
+ * AJAX handler for adding a subscription.
+ */
+add_action( 'wp_ajax_revisions_digest_add_subscription', function() : void {
+	check_ajax_referer( 'revisions_digest_subscription', 'nonce' );
+
+	if ( ! current_user_can( 'edit_posts' ) ) {
+		wp_send_json_error( [ 'message' => __( 'Permission denied.', 'revisions-digest' ) ] );
+	}
+
+	$email     = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
+	$frequency = isset( $_POST['frequency'] ) ? sanitize_text_field( wp_unslash( $_POST['frequency'] ) ) : 'weekly';
+
+	$result = add_email_subscription( [
+		'email'     => $email,
+		'frequency' => $frequency,
+	] );
+
+	if ( is_wp_error( $result ) ) {
+		wp_send_json_error( [ 'message' => $result->get_error_message() ] );
+	}
+
+	wp_send_json_success( [
+		'message' => __( 'Subscription added successfully.', 'revisions-digest' ),
+		'id'      => $result,
+		'email'   => $email,
+		'frequency' => $frequency,
+	] );
+} );
+
+/**
+ * AJAX handler for updating a subscription.
+ */
+add_action( 'wp_ajax_revisions_digest_update_subscription', function() : void {
+	check_ajax_referer( 'revisions_digest_subscription', 'nonce' );
+
+	if ( ! current_user_can( 'edit_posts' ) ) {
+		wp_send_json_error( [ 'message' => __( 'Permission denied.', 'revisions-digest' ) ] );
+	}
+
+	$id        = isset( $_POST['id'] ) ? sanitize_text_field( wp_unslash( $_POST['id'] ) ) : '';
+	$email     = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
+	$frequency = isset( $_POST['frequency'] ) ? sanitize_text_field( wp_unslash( $_POST['frequency'] ) ) : '';
+
+	$data = [];
+	if ( $email ) {
+		$data['email'] = $email;
+	}
+	if ( $frequency ) {
+		$data['frequency'] = $frequency;
+	}
+
+	$result = update_email_subscription( $id, $data );
+
+	if ( is_wp_error( $result ) ) {
+		wp_send_json_error( [ 'message' => $result->get_error_message() ] );
+	}
+
+	wp_send_json_success( [
+		'message'   => __( 'Subscription updated successfully.', 'revisions-digest' ),
+		'id'        => $id,
+		'email'     => $email,
+		'frequency' => $frequency,
+	] );
+} );
+
+/**
+ * AJAX handler for deleting a subscription.
+ */
+add_action( 'wp_ajax_revisions_digest_delete_subscription', function() : void {
+	check_ajax_referer( 'revisions_digest_subscription', 'nonce' );
+
+	if ( ! current_user_can( 'edit_posts' ) ) {
+		wp_send_json_error( [ 'message' => __( 'Permission denied.', 'revisions-digest' ) ] );
+	}
+
+	$id = isset( $_POST['id'] ) ? sanitize_text_field( wp_unslash( $_POST['id'] ) ) : '';
+
+	$result = delete_email_subscription( $id );
+
+	if ( is_wp_error( $result ) ) {
+		wp_send_json_error( [ 'message' => $result->get_error_message() ] );
+	}
+
+	wp_send_json_success( [
+		'message' => __( 'Subscription deleted successfully.', 'revisions-digest' ),
+		'id'      => $id,
+	] );
+} );
