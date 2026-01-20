@@ -300,6 +300,7 @@ function render_rss_setting() : void {
 	$enabled = get_option( 'revisions_digest_rss_enabled', false );
 	?>
 	<label for="revisions_digest_rss_enabled">
+		<input type="hidden" name="revisions_digest_rss_enabled" value="0" />
 		<input
 			type="checkbox"
 			id="revisions_digest_rss_enabled"
@@ -388,9 +389,10 @@ function render_feed() : void {
 		?>
 		<dc:creator><?php echo esc_html( $author ); ?></dc:creator>
 		<?php endforeach; ?>
+		<?php $rendered = str_replace( ']]>', ']]]]><![CDATA[>', $change['rendered'] ); ?>
 		<description><![CDATA[
 			<table class="diff">
-				<?php echo $change['rendered']; ?>
+				<?php echo $rendered; ?>
 			</table>
 		]]></description>
 	</item>
