@@ -472,3 +472,278 @@ function should_send_digest( array $subscription ) : bool {
 
 	return ( $now - $last_sent ) >= $interval;
 }
+
+/**
+ * Get the timeframe string for a frequency.
+ *
+ * @param string $frequency The frequency (daily, weekly, monthly).
+ * @return string The timeframe string for strtotime.
+ */
+function get_timeframe_for_frequency( string $frequency ) : string {
+	$timeframes = [
+		'daily'   => '-1 day',
+		'weekly'  => '-1 week',
+		'monthly' => '-1 month',
+	];
+
+	return $timeframes[ $frequency ] ?? '-1 week';
+}
+
+/**
+ * Get digest changes for a specific timeframe.
+ *
+ * @param string $timeframe The timeframe string for strtotime.
+ * @return array Array of changes.
+ */
+function get_digest_changes_for_timeframe( string $timeframe ) : array {
+	$time     = strtotime( $timeframe );
+	$modified = get_updated_posts( $time );
+	$changes  = [];
+
+	foreach ( $modified as $modified_post_id ) {
+		$revisions = get_post_revisions( $modified_post_id, $time );
+		if ( empty( $revisions ) ) {
+			continue;
+		}
+
+		if ( ! class_exists( 'WP_Text_Diff_Renderer_Table', false ) ) {
+			require_once ABSPATH . WPINC . '/wp-diff.php';
+		}
+
+		$authors = array_unique( array_map( 'intval', wp_list_pluck( $revisions, 'post_author' ) ) );
+		$bounds  = get_bound_revisions( $revisions );
+		$diff    = get_diff( $bounds['latest'], $bounds['earliest'] );
+
+		$renderer = new WP_Text_Diff_Renderer_Table( [
+			'show_split_view'        => false,
+			'leading_context_lines'  => 1,
+			'trailing_context_lines' => 1,
+		] );
+		$rendered = render_diff( $diff, $renderer );
+
+		$changes[] = [
+			'post_id'  => $modified_post_id,
+			'latest'   => $bounds['latest'],
+			'earliest' => $bounds['earliest'],
+			'diff'     => $diff,
+			'rendered' => $rendered,
+			'authors'  => $authors,
+		];
+	}
+
+	return $changes;
+}
+
+/**
+ * Generate email subject line.
+ *
+ * @param int $changes_count The number of changes.
+ * @return string The email subject.
+ */
+function get_email_subject( int $changes_count ) : string {
+	$site_name = get_bloginfo( 'name' );
+
+	if ( 0 === $changes_count ) {
+		return sprintf(
+			/* translators: %s: site name */
+			__( '[%s] Revisions Digest - No Recent Changes', 'revisions-digest' ),
+			$site_name
+		);
+	}
+
+	return sprintf(
+		/* translators: 1: site name, 2: number of changes */
+		_n(
+			'[%1$s] Revisions Digest - %2$d Page Changed',
+			'[%1$s] Revisions Digest - %2$d Pages Changed',
+			$changes_count,
+			'revisions-digest'
+		),
+		$site_name,
+		$changes_count
+	);
+}
+
+/**
+ * Generate HTML email content.
+ *
+ * @param array $changes The array of changes.
+ * @return string The HTML email content.
+ */
+function get_email_content( array $changes ) : string {
+	$site_name = get_bloginfo( 'name' );
+	$site_url  = home_url();
+
+	ob_start();
+	?>
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<style>
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
+			line-height: 1.6;
+			color: #333;
+			max-width: 800px;
+			margin: 0 auto;
+			padding: 20px;
+		}
+		h1 {
+			color: #0073aa;
+			border-bottom: 2px solid #0073aa;
+			padding-bottom: 10px;
+		}
+		h2 {
+			color: #23282d;
+			margin-top: 30px;
+		}
+		h2 a {
+			color: #0073aa;
+			text-decoration: none;
+		}
+		h2 a:hover {
+			text-decoration: underline;
+		}
+		.change-block {
+			background: #f9f9f9;
+			border: 1px solid #e5e5e5;
+			border-radius: 4px;
+			padding: 15px;
+			margin-bottom: 20px;
+		}
+		.authors {
+			color: #666;
+			font-size: 14px;
+			margin-bottom: 15px;
+		}
+		table.diff {
+			width: 100%;
+			border-collapse: collapse;
+			font-size: 13px;
+			margin-top: 10px;
+		}
+		table.diff td {
+			padding: 5px 10px;
+			border: 1px solid #ddd;
+			vertical-align: top;
+		}
+		table.diff .diff-deletedline {
+			background-color: #ffecec;
+		}
+		table.diff .diff-addedline {
+			background-color: #eaffea;
+		}
+		table.diff del {
+			background-color: #faa;
+			text-decoration: none;
+		}
+		table.diff ins {
+			background-color: #afa;
+			text-decoration: none;
+		}
+		.footer {
+			margin-top: 40px;
+			padding-top: 20px;
+			border-top: 1px solid #ddd;
+			font-size: 12px;
+			color: #666;
+		}
+		.preamble {
+			background: #fff8e5;
+			border-left: 4px solid #ffb900;
+			padding: 15px;
+			margin-bottom: 20px;
+		}
+	</style>
+</head>
+<body>
+	<h1><?php echo esc_html( sprintf( __( 'Revisions Digest for %s', 'revisions-digest' ), $site_name ) ); ?></h1>
+
+	<div class="preamble">
+		<p><?php esc_html_e( 'This is your periodic digest of content changes.', 'revisions-digest' ); ?></p>
+	</div>
+
+	<?php if ( empty( $changes ) ) : ?>
+		<p><?php esc_html_e( 'There have been no content changes during this period.', 'revisions-digest' ); ?></p>
+	<?php else : ?>
+		<?php foreach ( $changes as $change ) : ?>
+			<div class="change-block">
+				<h2>
+					<a href="<?php echo esc_url( get_permalink( $change['post_id'] ) ); ?>">
+						<?php echo esc_html( get_the_title( $change['post_id'] ) ); ?>
+					</a>
+				</h2>
+
+				<?php
+				$authors = array_filter( array_map( function( int $user_id ) {
+					$user = get_userdata( $user_id );
+					return $user ? $user->display_name : false;
+				}, $change['authors'] ) );
+				?>
+
+				<p class="authors">
+					<?php
+					echo esc_html( wp_sprintf(
+						/* translators: %l: comma-separated list of author names */
+						__( 'Changed by %l', 'revisions-digest' ),
+						$authors
+					) );
+					?>
+				</p>
+
+				<table class="diff">
+					<?php echo $change['rendered']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+				</table>
+			</div>
+		<?php endforeach; ?>
+	<?php endif; ?>
+
+	<div class="footer">
+		<p>
+			<?php
+			printf(
+				/* translators: %s: site URL */
+				esc_html__( 'This email was sent from %s', 'revisions-digest' ),
+				esc_html( $site_url )
+			);
+			?>
+		</p>
+		<p><?php esc_html_e( 'To manage your subscription, visit the WordPress dashboard.', 'revisions-digest' ); ?></p>
+	</div>
+</body>
+</html>
+	<?php
+	return ob_get_clean();
+}
+
+/**
+ * Send a digest email for a subscription.
+ *
+ * @param string $subscription_id The subscription ID.
+ * @return bool Whether the email was sent successfully.
+ */
+function send_digest_email( string $subscription_id ) : bool {
+	$subscription = get_subscription( $subscription_id );
+	if ( ! $subscription ) {
+		return false;
+	}
+
+	$timeframe = get_timeframe_for_frequency( $subscription['frequency'] );
+	$changes   = get_digest_changes_for_timeframe( $timeframe );
+	$subject   = get_email_subject( count( $changes ) );
+	$content   = get_email_content( $changes );
+
+	$headers = [
+		'Content-Type: text/html; charset=UTF-8',
+	];
+
+	$sent = wp_mail( $subscription['email'], $subject, $content, $headers );
+
+	if ( $sent ) {
+		update_email_subscription( $subscription_id, [ 'last_sent' => time() ] );
+	}
+
+	return $sent;
+}
