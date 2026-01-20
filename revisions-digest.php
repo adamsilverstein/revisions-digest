@@ -272,3 +272,127 @@ function render_diff( Text_Diff $text_diff, Text_Diff_Renderer $renderer ) : str
 
 	return $diff;
 }
+
+/**
+ * Get all email subscriptions.
+ *
+ * @return array Array of subscriptions keyed by subscription ID.
+ */
+function get_email_subscriptions() : array {
+	return get_option( 'revisions_digest_subscriptions', [] );
+}
+
+/**
+ * Get a single subscription by ID.
+ *
+ * @param string $id The subscription ID.
+ * @return array|null The subscription data or null if not found.
+ */
+function get_subscription( string $id ) : ?array {
+	$subscriptions = get_email_subscriptions();
+	return $subscriptions[ $id ] ?? null;
+}
+
+/**
+ * Add a new email subscription.
+ *
+ * @param array $data {
+ *     Subscription data.
+ *
+ *     @type string $email     The email address.
+ *     @type string $frequency The frequency (daily, weekly, monthly).
+ *     @type array  $post_types The post types to include.
+ * }
+ * @return string|WP_Error The subscription ID on success, WP_Error on failure.
+ */
+function add_email_subscription( array $data ) {
+	$email = sanitize_email( $data['email'] ?? '' );
+	if ( ! is_email( $email ) ) {
+		return new WP_Error( 'invalid_email', __( 'Invalid email address.', 'revisions-digest' ) );
+	}
+
+	$frequency = sanitize_text_field( $data['frequency'] ?? 'weekly' );
+	if ( ! in_array( $frequency, [ 'daily', 'weekly', 'monthly' ], true ) ) {
+		$frequency = 'weekly';
+	}
+
+	$post_types = $data['post_types'] ?? [ 'page' ];
+	$user_id    = get_current_user_id();
+
+	$subscriptions = get_email_subscriptions();
+	$id            = 'sub_' . wp_generate_password( 12, false );
+
+	$subscriptions[ $id ] = [
+		'email'      => $email,
+		'frequency'  => $frequency,
+		'post_types' => $post_types,
+		'created'    => time(),
+		'last_sent'  => 0,
+		'user_id'    => $user_id,
+	];
+
+	update_option( 'revisions_digest_subscriptions', $subscriptions );
+
+	return $id;
+}
+
+/**
+ * Update an existing email subscription.
+ *
+ * @param string $id   The subscription ID.
+ * @param array  $data The data to update.
+ * @return bool|WP_Error True on success, WP_Error on failure.
+ */
+function update_email_subscription( string $id, array $data ) {
+	$subscriptions = get_email_subscriptions();
+
+	if ( ! isset( $subscriptions[ $id ] ) ) {
+		return new WP_Error( 'not_found', __( 'Subscription not found.', 'revisions-digest' ) );
+	}
+
+	if ( isset( $data['email'] ) ) {
+		$email = sanitize_email( $data['email'] );
+		if ( ! is_email( $email ) ) {
+			return new WP_Error( 'invalid_email', __( 'Invalid email address.', 'revisions-digest' ) );
+		}
+		$subscriptions[ $id ]['email'] = $email;
+	}
+
+	if ( isset( $data['frequency'] ) ) {
+		$frequency = sanitize_text_field( $data['frequency'] );
+		if ( in_array( $frequency, [ 'daily', 'weekly', 'monthly' ], true ) ) {
+			$subscriptions[ $id ]['frequency'] = $frequency;
+		}
+	}
+
+	if ( isset( $data['post_types'] ) ) {
+		$subscriptions[ $id ]['post_types'] = array_map( 'sanitize_text_field', $data['post_types'] );
+	}
+
+	if ( isset( $data['last_sent'] ) ) {
+		$subscriptions[ $id ]['last_sent'] = intval( $data['last_sent'] );
+	}
+
+	update_option( 'revisions_digest_subscriptions', $subscriptions );
+
+	return true;
+}
+
+/**
+ * Delete an email subscription.
+ *
+ * @param string $id The subscription ID.
+ * @return bool|WP_Error True on success, WP_Error on failure.
+ */
+function delete_email_subscription( string $id ) {
+	$subscriptions = get_email_subscriptions();
+
+	if ( ! isset( $subscriptions[ $id ] ) ) {
+		return new WP_Error( 'not_found', __( 'Subscription not found.', 'revisions-digest' ) );
+	}
+
+	unset( $subscriptions[ $id ] );
+	update_option( 'revisions_digest_subscriptions', $subscriptions );
+
+	return true;
+}
