@@ -355,3 +355,147 @@ function render_diff( Text_Diff $text_diff, Text_Diff_Renderer $renderer ) : str
 
 	return $diff;
 }
+
+/**
+ * Register RSS feed settings in Settings → Reading.
+ */
+add_action( 'admin_init', __NAMESPACE__ . '\register_settings' );
+
+/**
+ * Register the RSS feed setting.
+ */
+function register_settings() : void {
+	register_setting( 'reading', 'revisions_digest_rss_enabled' );
+
+	add_settings_field(
+		'revisions_digest_rss_enabled',
+		__( 'Revisions Digest RSS Feed', 'revisions-digest' ),
+		__NAMESPACE__ . '\render_rss_setting',
+		'reading',
+		'default'
+	);
+}
+
+/**
+ * Render the RSS feed setting checkbox.
+ */
+function render_rss_setting() : void {
+	$enabled = get_option( 'revisions_digest_rss_enabled', false );
+	?>
+	<label for="revisions_digest_rss_enabled">
+		<input type="hidden" name="revisions_digest_rss_enabled" value="0" />
+		<input
+			type="checkbox"
+			id="revisions_digest_rss_enabled"
+			name="revisions_digest_rss_enabled"
+			value="1"
+			<?php checked( $enabled ); ?>
+		/>
+		<?php esc_html_e( 'Enable RSS feed for recent content changes', 'revisions-digest' ); ?>
+	</label>
+	<?php if ( $enabled ) : ?>
+		<p class="description">
+			<?php
+			printf(
+				/* translators: %s: Feed URL */
+				esc_html__( 'Feed URL: %s', 'revisions-digest' ),
+				'<code>' . esc_url( get_feed_link( 'revisions-digest' ) ) . '</code>'
+			);
+			?>
+		</p>
+	<?php endif; ?>
+	<?php
+}
+
+/**
+ * Register the RSS feed endpoint.
+ */
+add_action( 'init', __NAMESPACE__ . '\register_feed' );
+
+/**
+ * Register the revisions-digest feed.
+ */
+function register_feed() : void {
+	if ( get_option( 'revisions_digest_rss_enabled', false ) ) {
+		add_feed( 'revisions-digest', __NAMESPACE__ . '\render_feed' );
+	}
+}
+
+/**
+ * Render the RSS feed.
+ */
+function render_feed() : void {
+	if ( ! is_user_logged_in() ) {
+		status_header( 403 );
+		wp_die(
+			esc_html__( 'You must be logged in to view the Revisions Digest feed.', 'revisions-digest' ),
+			esc_html__( 'Access Denied', 'revisions-digest' ),
+			array( 'response' => 403 )
+		);
+	}
+
+	header( 'Content-Type: application/rss+xml; charset=' . get_option( 'blog_charset' ) );
+
+	$changes = get_digest_changes();
+
+	echo '<?xml version="1.0" encoding="' . esc_attr( get_option( 'blog_charset' ) ) . '"?>' . "\n";
+	?>
+<rss version="2.0"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:atom="http://www.w3.org/2005/Atom"
+>
+<channel>
+	<title><?php echo esc_html( get_bloginfo( 'name' ) ); ?> - <?php esc_html_e( 'Revisions Digest', 'revisions-digest' ); ?></title>
+	<link><?php echo esc_url( home_url( '/' ) ); ?></link>
+	<description><?php esc_html_e( 'Recent content changes', 'revisions-digest' ); ?></description>
+	<lastBuildDate><?php echo esc_html( gmdate( 'r' ) ); ?></lastBuildDate>
+	<language><?php echo esc_html( get_bloginfo( 'language' ) ); ?></language>
+	<atom:link href="<?php echo esc_url( get_feed_link( 'revisions-digest' ) ); ?>" rel="self" type="application/rss+xml" />
+	<?php if ( empty( $changes ) ) : ?>
+	<!-- <?php esc_html_e( 'No content changes in the last week', 'revisions-digest' ); ?> -->
+	<?php else : ?>
+	<?php foreach ( $changes as $change ) : ?>
+	<item>
+		<title><?php echo esc_html( get_the_title( $change['post_id'] ) ); ?></title>
+		<?php $link = get_edit_post_link( $change['post_id'], 'raw' ) ?: get_permalink( $change['post_id'] ); ?>
+		<link><?php echo esc_url( $link ); ?></link>
+		<guid isPermaLink="false"><?php echo esc_html( $change['post_id'] . '-' . $change['latest']->ID ); ?></guid>
+		<pubDate><?php echo esc_html( mysql2date( 'r', $change['latest']->post_modified_gmt, false ) ); ?></pubDate>
+		<?php
+		$authors = array_filter( array_map( function( int $user_id ) {
+			$user = get_userdata( $user_id );
+			if ( ! $user ) {
+				return false;
+			}
+			return $user->display_name;
+		}, $change['authors'] ) );
+		foreach ( $authors as $author ) :
+		?>
+		<dc:creator><?php echo esc_html( $author ); ?></dc:creator>
+		<?php endforeach; ?>
+		<?php $rendered = str_replace( ']]>', ']]]]><![CDATA[>', $change['rendered'] ); ?>
+		<description><![CDATA[
+			<table class="diff">
+				<?php echo $rendered; ?>
+			</table>
+		]]></description>
+	</item>
+	<?php endforeach; ?>
+	<?php endif; ?>
+</channel>
+</rss>
+	<?php
+}
+
+/**
+ * Flush rewrite rules when the RSS feed setting changes.
+ */
+add_action( 'update_option_revisions_digest_rss_enabled', __NAMESPACE__ . '\flush_rewrite_rules_on_setting_change' );
+add_action( 'add_option_revisions_digest_rss_enabled', __NAMESPACE__ . '\flush_rewrite_rules_on_setting_change' );
+
+/**
+ * Flush rewrite rules.
+ */
+function flush_rewrite_rules_on_setting_change() : void {
+	flush_rewrite_rules();
+}
