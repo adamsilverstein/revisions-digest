@@ -195,7 +195,7 @@ class Digest {
 		$revisions     = wp_get_post_revisions( $post_id );
 		$use_revisions = [];
 
-		foreach ( $revisions as $revision_id => $revision ) {
+		foreach ( $revisions as $revision ) {
 			// @TODO this needs to exclude revisions that occured before the post published date
 			$use_revisions[] = $revision;
 
