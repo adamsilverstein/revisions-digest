@@ -285,7 +285,7 @@ function render_subscription_list( array $subscriptions, string $nonce ) : void 
 			<?php endforeach; ?>
 		</ul>
 	<?php else : ?>
-		<ul id="revisions-digest-subscription-list" style="display:none;"></ul>
+		<ul id="revisions-digest-subscription-list" class="hidden"></ul>
 	<?php endif; ?>
 
 	<!-- Edit modal -->
@@ -978,6 +978,23 @@ add_action( 'wp_ajax_revisions_digest_add_subscription', function() : void {
 } );
 
 /**
+ * Verify subscription ownership for AJAX requests.
+ *
+ * @param string $subscription_id The subscription ID to verify.
+ * @return array|null The subscription data if verified, null otherwise (with error sent via AJAX).
+ */
+function verify_subscription_ownership( string $subscription_id ) : ?array {
+	$subscription = get_subscription( $subscription_id );
+	if ( ! $subscription ) {
+		wp_send_json_error( [ 'message' => __( 'Subscription not found.', 'revisions-digest' ) ] );
+	}
+	if ( (int) ( $subscription['user_id'] ?? 0 ) !== get_current_user_id() && ! current_user_can( 'manage_options' ) ) {
+		wp_send_json_error( [ 'message' => __( 'Permission denied.', 'revisions-digest' ) ] );
+	}
+	return $subscription;
+}
+
+/**
  * AJAX handler for updating a subscription.
  */
 add_action( 'wp_ajax_revisions_digest_update_subscription', function() : void {
@@ -992,13 +1009,7 @@ add_action( 'wp_ajax_revisions_digest_update_subscription', function() : void {
 	$frequency = isset( $_POST['frequency'] ) ? sanitize_text_field( wp_unslash( $_POST['frequency'] ) ) : '';
 
 	// Verify subscription ownership.
-	$subscription = get_subscription( $id );
-	if ( ! $subscription ) {
-		wp_send_json_error( [ 'message' => __( 'Subscription not found.', 'revisions-digest' ) ] );
-	}
-	if ( (int) ( $subscription['user_id'] ?? 0 ) !== get_current_user_id() && ! current_user_can( 'manage_options' ) ) {
-		wp_send_json_error( [ 'message' => __( 'Permission denied.', 'revisions-digest' ) ] );
-	}
+	verify_subscription_ownership( $id );
 
 	$data = [];
 	if ( $email ) {
@@ -1035,13 +1046,7 @@ add_action( 'wp_ajax_revisions_digest_delete_subscription', function() : void {
 	$id = isset( $_POST['id'] ) ? sanitize_text_field( wp_unslash( $_POST['id'] ) ) : '';
 
 	// Verify subscription ownership.
-	$subscription = get_subscription( $id );
-	if ( ! $subscription ) {
-		wp_send_json_error( [ 'message' => __( 'Subscription not found.', 'revisions-digest' ) ] );
-	}
-	if ( (int) ( $subscription['user_id'] ?? 0 ) !== get_current_user_id() && ! current_user_can( 'manage_options' ) ) {
-		wp_send_json_error( [ 'message' => __( 'Permission denied.', 'revisions-digest' ) ] );
-	}
+	verify_subscription_ownership( $id );
 
 	$result = delete_email_subscription( $id );
 
@@ -1117,6 +1122,9 @@ function render_subscription_scripts( string $nonce ) : void {
 			border-radius: 4px;
 			box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 		}
+		#revisions-digest-subscription-list.hidden {
+			display: none;
+		}
 	</style>
 	<script>
 	(function() {
@@ -1171,6 +1179,8 @@ function render_subscription_scripts( string $nonce ) : void {
 							list.id = 'revisions-digest-subscription-list';
 							addForm.parentNode.appendChild(list);
 						}
+						// Remove hidden class if present
+						list.classList.remove('hidden');
 						var li = document.createElement('li');
 						li.setAttribute('data-id', data.data.id);
 						li.innerHTML = '<span class="subscription-email">' + escapeHtml(data.data.email) + '</span> ' +
