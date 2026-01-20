@@ -43,6 +43,9 @@ use WP_Text_Diff_Renderer_Table;
 // Include the Digest helper class
 require_once __DIR__ . '/includes/class-digest.php';
 
+// Include the REST controller class
+require_once __DIR__ . '/includes/class-rest-controller.php';
+
 add_action( 'wp_dashboard_setup', function() {
 	add_meta_box(
 		'revisions_digest_dashboard',
@@ -54,17 +57,105 @@ add_action( 'wp_dashboard_setup', function() {
 	);
 } );
 
-/**
- * Undocumented function
- *
- * @param mixed $no_idea  @TODO find out what this parameter is.
- * @param array $meta_box @TODO find out what this parameter is.
- */
-function widget( $no_idea, array $meta_box ) {
-	$changes = get_digest_changes();
+// Register REST API routes.
+add_action( 'rest_api_init', function() {
+	$controller = new REST_Controller();
+	$controller->register_routes();
+} );
 
+// Enqueue dashboard assets.
+add_action( 'admin_enqueue_scripts', __NAMESPACE__ . '\enqueue_dashboard_assets' );
+
+/**
+ * Enqueue dashboard widget assets.
+ *
+ * @param string $hook_suffix The current admin page.
+ * @return void
+ */
+function enqueue_dashboard_assets( string $hook_suffix ) : void {
+	if ( 'index.php' !== $hook_suffix ) {
+		return;
+	}
+
+	$plugin_url = plugin_dir_url( __FILE__ );
+
+	wp_enqueue_style(
+		'revisions-digest-widget',
+		$plugin_url . 'assets/css/widget.css',
+		[],
+		'0.1.0'
+	);
+
+	wp_enqueue_script(
+		'revisions-digest-widget',
+		$plugin_url . 'assets/js/widget.js',
+		[ 'wp-api-fetch', 'wp-i18n' ],
+		'0.1.0',
+		true
+	);
+
+	wp_localize_script(
+		'revisions-digest-widget',
+		'revisionsDigestData',
+		[
+			'restUrl' => rest_url( 'revisions-digest/v1/digest' ),
+			'nonce'   => wp_create_nonce( 'wp_rest' ),
+			'periods' => [
+				Digest::PERIOD_DAY   => __( 'Today', 'revisions-digest' ),
+				Digest::PERIOD_WEEK  => __( 'This Week', 'revisions-digest' ),
+				Digest::PERIOD_MONTH => __( 'This Month', 'revisions-digest' ),
+			],
+		]
+	);
+}
+
+/**
+ * Dashboard widget callback.
+ *
+ * @param mixed $no_idea  The object passed to the callback.
+ * @param array $meta_box The meta box arguments.
+ * @return void
+ */
+function widget( $no_idea, array $meta_box ) : void {
+	?>
+	<div class="revisions-digest-widget">
+		<div class="revisions-digest-period-selector">
+			<button type="button" class="button revisions-digest-period-btn" data-period="<?php echo esc_attr( Digest::PERIOD_DAY ); ?>">
+				<?php esc_html_e( 'Today', 'revisions-digest' ); ?>
+			</button>
+			<button type="button" class="button revisions-digest-period-btn active" data-period="<?php echo esc_attr( Digest::PERIOD_WEEK ); ?>">
+				<?php esc_html_e( 'This Week', 'revisions-digest' ); ?>
+			</button>
+			<button type="button" class="button revisions-digest-period-btn" data-period="<?php echo esc_attr( Digest::PERIOD_MONTH ); ?>">
+				<?php esc_html_e( 'This Month', 'revisions-digest' ); ?>
+			</button>
+		</div>
+
+		<div class="revisions-digest-loading" style="display: none;">
+			<span class="spinner is-active"></span>
+			<span><?php esc_html_e( 'Loading...', 'revisions-digest' ); ?></span>
+		</div>
+
+		<div class="revisions-digest-error" style="display: none;"></div>
+
+		<div class="revisions-digest-results">
+			<?php render_widget_content( get_digest_changes() ); ?>
+		</div>
+	</div>
+	<?php
+}
+
+/**
+ * Render the widget content from changes array.
+ *
+ * @param array $changes Array of changes to render.
+ * @return void
+ */
+function render_widget_content( array $changes ) : void {
 	if ( empty( $changes ) ) {
-		esc_html_e( 'There have been no content changes in the last week', 'revisions-digest' );
+		echo '<p class="revisions-digest-empty">';
+		esc_html_e( 'There have been no content changes in this period.', 'revisions-digest' );
+		echo '</p>';
 		return;
 	}
 
@@ -72,12 +163,14 @@ function widget( $no_idea, array $meta_box ) {
 		echo '<div class="activity-block">';
 
 		printf(
-			'<h3><a href="%1$s">%2$s</a></h3>',
+			'<h3><a href="%1$s">%2$s</a> <a href="%3$s" class="revisions-digest-edit-link">%4$s</a></h3>',
 			esc_url( get_permalink( $change['post_id'] ) ),
-			get_the_title( $change['post_id'] )
+			esc_html( get_the_title( $change['post_id'] ) ),
+			esc_url( get_edit_post_link( $change['post_id'] ) ),
+			esc_html__( 'Edit', 'revisions-digest' )
 		);
 
-		$authors = array_filter( array_map( function( int $user_id ) {
+		$authors = array_filter( array_map( function ( int $user_id ) {
 			$user = get_userdata( $user_id );
 			if ( ! $user ) {
 				return false;
@@ -97,7 +190,7 @@ function widget( $no_idea, array $meta_box ) {
 		);
 
 		echo '<table class="diff">';
-		echo $change['rendered']; // WPCS: XSS ok.
+		echo $change['rendered']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Output is pre-escaped by WP_Text_Diff_Renderer_Table.
 		echo '</table>';
 
 		echo '</div>';
