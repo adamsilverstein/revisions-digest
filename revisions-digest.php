@@ -396,3 +396,79 @@ function delete_email_subscription( string $id ) {
 
 	return true;
 }
+
+/**
+ * Register custom cron schedules.
+ *
+ * @param array $schedules Existing cron schedules.
+ * @return array Modified cron schedules.
+ */
+add_filter( 'cron_schedules', function( array $schedules ) : array {
+	$schedules['weekly'] = [
+		'interval' => WEEK_IN_SECONDS,
+		'display'  => __( 'Once Weekly', 'revisions-digest' ),
+	];
+
+	$schedules['monthly'] = [
+		'interval' => MONTH_IN_SECONDS,
+		'display'  => __( 'Once Monthly', 'revisions-digest' ),
+	];
+
+	return $schedules;
+} );
+
+/**
+ * Schedule cron events on plugin activation.
+ */
+function activate_cron_events() : void {
+	if ( ! wp_next_scheduled( 'revisions_digest_send_emails' ) ) {
+		wp_schedule_event( time(), 'hourly', 'revisions_digest_send_emails' );
+	}
+}
+register_activation_hook( __FILE__, __NAMESPACE__ . '\activate_cron_events' );
+
+/**
+ * Clear cron events on plugin deactivation.
+ */
+function deactivate_cron_events() : void {
+	$timestamp = wp_next_scheduled( 'revisions_digest_send_emails' );
+	if ( $timestamp ) {
+		wp_unschedule_event( $timestamp, 'revisions_digest_send_emails' );
+	}
+}
+register_deactivation_hook( __FILE__, __NAMESPACE__ . '\deactivate_cron_events' );
+
+/**
+ * Process email subscriptions and send digests when due.
+ */
+add_action( 'revisions_digest_send_emails', function() : void {
+	$subscriptions = get_email_subscriptions();
+
+	foreach ( $subscriptions as $id => $subscription ) {
+		if ( should_send_digest( $subscription ) ) {
+			send_digest_email( $id );
+		}
+	}
+} );
+
+/**
+ * Determine if a digest should be sent for a subscription.
+ *
+ * @param array $subscription The subscription data.
+ * @return bool Whether the digest should be sent.
+ */
+function should_send_digest( array $subscription ) : bool {
+	$last_sent = $subscription['last_sent'] ?? 0;
+	$frequency = $subscription['frequency'] ?? 'weekly';
+	$now       = time();
+
+	$intervals = [
+		'daily'   => DAY_IN_SECONDS,
+		'weekly'  => WEEK_IN_SECONDS,
+		'monthly' => MONTH_IN_SECONDS,
+	];
+
+	$interval = $intervals[ $frequency ] ?? WEEK_IN_SECONDS;
+
+	return ( $now - $last_sent ) >= $interval;
+}
