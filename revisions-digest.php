@@ -62,43 +62,152 @@ function widget( $no_idea, array $meta_box ) {
 
 	if ( empty( $changes ) ) {
 		esc_html_e( 'There have been no content changes in the last week', 'revisions-digest' );
+	} else {
+		foreach ( $changes as $change ) {
+			echo '<div class="activity-block">';
+
+			printf(
+				'<h3><a href="%1$s">%2$s</a></h3>',
+				esc_url( get_permalink( $change['post_id'] ) ),
+				get_the_title( $change['post_id'] )
+			);
+
+			$authors = array_filter( array_map( function( int $user_id ) {
+				$user = get_userdata( $user_id );
+				if ( ! $user ) {
+					return false;
+				}
+
+				return $user->display_name;
+			}, $change['authors'] ) );
+
+			/* translators: %l: comma-separated list of author names */
+			$changes_by = wp_sprintf(
+				__( 'Changed by %l', 'revisions-digest' ),
+				$authors
+			);
+			printf(
+				'<p>%1$s</p>',
+				esc_html( $changes_by )
+			);
+
+			echo '<table class="diff">';
+			echo $change['rendered']; // WPCS: XSS ok.
+			echo '</table>';
+
+			echo '</div>';
+		}
+	}
+
+	// Email subscription section.
+	if ( current_user_can( 'edit_posts' ) ) {
+		render_subscription_section();
+	}
+}
+
+/**
+ * Render the email subscription section in the widget.
+ */
+function render_subscription_section() : void {
+	$current_user = wp_get_current_user();
+	$subscriptions = get_email_subscriptions();
+	$nonce = wp_create_nonce( 'revisions_digest_subscription' );
+	?>
+	<div class="activity-block revisions-digest-subscriptions">
+		<h3><?php esc_html_e( 'Email Subscriptions', 'revisions-digest' ); ?></h3>
+
+		<?php render_subscription_form( $current_user->user_email, $nonce ); ?>
+
+		<?php render_subscription_list( $subscriptions, $nonce ); ?>
+	</div>
+	<?php
+	render_subscription_scripts( $nonce );
+}
+
+/**
+ * Render the subscription form.
+ *
+ * @param string $default_email The default email address.
+ * @param string $nonce         The security nonce.
+ */
+function render_subscription_form( string $default_email, string $nonce ) : void {
+	?>
+	<form id="revisions-digest-add-subscription" class="revisions-digest-form">
+		<p>
+			<label for="revisions-digest-email"><?php esc_html_e( 'Email Address:', 'revisions-digest' ); ?></label>
+			<input type="email" id="revisions-digest-email" name="email" value="<?php echo esc_attr( $default_email ); ?>" required />
+		</p>
+		<p>
+			<label for="revisions-digest-frequency"><?php esc_html_e( 'Frequency:', 'revisions-digest' ); ?></label>
+			<select id="revisions-digest-frequency" name="frequency">
+				<option value="daily"><?php esc_html_e( 'Daily', 'revisions-digest' ); ?></option>
+				<option value="weekly" selected><?php esc_html_e( 'Weekly', 'revisions-digest' ); ?></option>
+				<option value="monthly"><?php esc_html_e( 'Monthly', 'revisions-digest' ); ?></option>
+			</select>
+		</p>
+		<p>
+			<button type="submit" class="button button-primary"><?php esc_html_e( 'Subscribe', 'revisions-digest' ); ?></button>
+		</p>
+		<div class="revisions-digest-message" style="display:none;"></div>
+	</form>
+	<?php
+}
+
+/**
+ * Render the list of existing subscriptions.
+ *
+ * @param array  $subscriptions The subscriptions array.
+ * @param string $nonce         The security nonce.
+ */
+function render_subscription_list( array $subscriptions, string $nonce ) : void {
+	if ( empty( $subscriptions ) ) {
 		return;
 	}
 
-	foreach ( $changes as $change ) {
-		echo '<div class="activity-block">';
+	$frequency_labels = [
+		'daily'   => __( 'Daily', 'revisions-digest' ),
+		'weekly'  => __( 'Weekly', 'revisions-digest' ),
+		'monthly' => __( 'Monthly', 'revisions-digest' ),
+	];
+	?>
+	<h4><?php esc_html_e( 'Current Subscriptions', 'revisions-digest' ); ?></h4>
+	<ul id="revisions-digest-subscription-list">
+		<?php foreach ( $subscriptions as $id => $subscription ) : ?>
+			<li data-id="<?php echo esc_attr( $id ); ?>">
+				<span class="subscription-email"><?php echo esc_html( $subscription['email'] ); ?></span>
+				<span class="subscription-frequency">(<?php echo esc_html( $frequency_labels[ $subscription['frequency'] ] ?? $subscription['frequency'] ); ?>)</span>
+				<span class="subscription-actions">
+					<a href="#" class="edit-subscription" data-id="<?php echo esc_attr( $id ); ?>" data-email="<?php echo esc_attr( $subscription['email'] ); ?>" data-frequency="<?php echo esc_attr( $subscription['frequency'] ); ?>"><?php esc_html_e( 'Edit', 'revisions-digest' ); ?></a>
+					|
+					<a href="#" class="delete-subscription" data-id="<?php echo esc_attr( $id ); ?>"><?php esc_html_e( 'Delete', 'revisions-digest' ); ?></a>
+				</span>
+			</li>
+		<?php endforeach; ?>
+	</ul>
 
-		printf(
-			'<h3><a href="%1$s">%2$s</a></h3>',
-			esc_url( get_permalink( $change['post_id'] ) ),
-			get_the_title( $change['post_id'] )
-		);
-
-		$authors = array_filter( array_map( function( int $user_id ) {
-			$user = get_userdata( $user_id );
-			if ( ! $user ) {
-				return false;
-			}
-
-			return $user->display_name;
-		}, $change['authors'] ) );
-
-		/* translators: %l: comma-separated list of author names */
-		$changes_by = wp_sprintf(
-			__( 'Changed by %l', 'revisions-digest' ),
-			$authors
-		);
-		printf(
-			'<p>%1$s</p>',
-			esc_html( $changes_by )
-		);
-
-		echo '<table class="diff">';
-		echo $change['rendered']; // WPCS: XSS ok.
-		echo '</table>';
-
-		echo '</div>';
-	}
+	<!-- Edit modal -->
+	<div id="revisions-digest-edit-modal" style="display:none;">
+		<form id="revisions-digest-edit-form">
+			<input type="hidden" id="edit-subscription-id" name="id" value="" />
+			<p>
+				<label for="edit-subscription-email"><?php esc_html_e( 'Email Address:', 'revisions-digest' ); ?></label>
+				<input type="email" id="edit-subscription-email" name="email" required />
+			</p>
+			<p>
+				<label for="edit-subscription-frequency"><?php esc_html_e( 'Frequency:', 'revisions-digest' ); ?></label>
+				<select id="edit-subscription-frequency" name="frequency">
+					<option value="daily"><?php esc_html_e( 'Daily', 'revisions-digest' ); ?></option>
+					<option value="weekly"><?php esc_html_e( 'Weekly', 'revisions-digest' ); ?></option>
+					<option value="monthly"><?php esc_html_e( 'Monthly', 'revisions-digest' ); ?></option>
+				</select>
+			</p>
+			<p>
+				<button type="submit" class="button button-primary"><?php esc_html_e( 'Update', 'revisions-digest' ); ?></button>
+				<button type="button" class="button cancel-edit"><?php esc_html_e( 'Cancel', 'revisions-digest' ); ?></button>
+			</p>
+		</form>
+	</div>
+	<?php
 }
 
 /**
@@ -837,3 +946,254 @@ add_action( 'wp_ajax_revisions_digest_delete_subscription', function() : void {
 		'id'      => $id,
 	] );
 } );
+
+/**
+ * Render the inline JavaScript for subscription management.
+ *
+ * @param string $nonce The security nonce.
+ */
+function render_subscription_scripts( string $nonce ) : void {
+	$frequency_labels = [
+		'daily'   => __( 'Daily', 'revisions-digest' ),
+		'weekly'  => __( 'Weekly', 'revisions-digest' ),
+		'monthly' => __( 'Monthly', 'revisions-digest' ),
+	];
+	?>
+	<style>
+		.revisions-digest-subscriptions {
+			margin-top: 20px;
+			padding-top: 15px;
+			border-top: 1px solid #eee;
+		}
+		.revisions-digest-form label {
+			display: inline-block;
+			width: 100px;
+		}
+		.revisions-digest-form input[type="email"],
+		.revisions-digest-form select {
+			width: 200px;
+		}
+		.revisions-digest-message {
+			padding: 8px 12px;
+			margin: 10px 0;
+			border-radius: 3px;
+		}
+		.revisions-digest-message.success {
+			background: #d4edda;
+			border: 1px solid #c3e6cb;
+			color: #155724;
+		}
+		.revisions-digest-message.error {
+			background: #f8d7da;
+			border: 1px solid #f5c6cb;
+			color: #721c24;
+		}
+		#revisions-digest-subscription-list {
+			margin: 10px 0;
+			padding-left: 20px;
+		}
+		#revisions-digest-subscription-list li {
+			margin-bottom: 5px;
+		}
+		.subscription-actions {
+			margin-left: 10px;
+		}
+		.subscription-actions a {
+			text-decoration: none;
+		}
+		#revisions-digest-edit-modal {
+			background: #fff;
+			border: 1px solid #ccc;
+			padding: 15px;
+			margin: 15px 0;
+			border-radius: 4px;
+			box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+		}
+	</style>
+	<script>
+	(function() {
+		var nonce = <?php echo wp_json_encode( $nonce ); ?>;
+		var ajaxurl = <?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>;
+		var frequencyLabels = <?php echo wp_json_encode( $frequency_labels ); ?>;
+
+		function showMessage(container, message, type) {
+			var msgEl = container.querySelector('.revisions-digest-message');
+			if (!msgEl) {
+				msgEl = document.createElement('div');
+				msgEl.className = 'revisions-digest-message';
+				container.appendChild(msgEl);
+			}
+			msgEl.textContent = message;
+			msgEl.className = 'revisions-digest-message ' + type;
+			msgEl.style.display = 'block';
+			setTimeout(function() {
+				msgEl.style.display = 'none';
+			}, 5000);
+		}
+
+		// Add subscription form
+		var addForm = document.getElementById('revisions-digest-add-subscription');
+		if (addForm) {
+			addForm.addEventListener('submit', function(e) {
+				e.preventDefault();
+				var email = document.getElementById('revisions-digest-email').value;
+				var frequency = document.getElementById('revisions-digest-frequency').value;
+
+				var formData = new FormData();
+				formData.append('action', 'revisions_digest_add_subscription');
+				formData.append('nonce', nonce);
+				formData.append('email', email);
+				formData.append('frequency', frequency);
+
+				fetch(ajaxurl, {
+					method: 'POST',
+					body: formData
+				})
+				.then(function(response) { return response.json(); })
+				.then(function(data) {
+					if (data.success) {
+						showMessage(addForm, data.data.message, 'success');
+						// Add to list
+						var list = document.getElementById('revisions-digest-subscription-list');
+						if (!list) {
+							var h4 = document.createElement('h4');
+							h4.textContent = <?php echo wp_json_encode( __( 'Current Subscriptions', 'revisions-digest' ) ); ?>;
+							addForm.parentNode.appendChild(h4);
+							list = document.createElement('ul');
+							list.id = 'revisions-digest-subscription-list';
+							addForm.parentNode.appendChild(list);
+						}
+						var li = document.createElement('li');
+						li.setAttribute('data-id', data.data.id);
+						li.innerHTML = '<span class="subscription-email">' + escapeHtml(data.data.email) + '</span> ' +
+							'<span class="subscription-frequency">(' + escapeHtml(frequencyLabels[data.data.frequency] || data.data.frequency) + ')</span> ' +
+							'<span class="subscription-actions">' +
+							'<a href="#" class="edit-subscription" data-id="' + escapeHtml(data.data.id) + '" data-email="' + escapeHtml(data.data.email) + '" data-frequency="' + escapeHtml(data.data.frequency) + '"><?php echo esc_js( __( 'Edit', 'revisions-digest' ) ); ?></a> | ' +
+							'<a href="#" class="delete-subscription" data-id="' + escapeHtml(data.data.id) + '"><?php echo esc_js( __( 'Delete', 'revisions-digest' ) ); ?></a>' +
+							'</span>';
+						list.appendChild(li);
+						bindDeleteHandlers();
+						bindEditHandlers();
+					} else {
+						showMessage(addForm, data.data.message, 'error');
+					}
+				})
+				.catch(function() {
+					showMessage(addForm, <?php echo wp_json_encode( __( 'An error occurred.', 'revisions-digest' ) ); ?>, 'error');
+				});
+			});
+		}
+
+		function escapeHtml(text) {
+			var div = document.createElement('div');
+			div.textContent = text;
+			return div.innerHTML;
+		}
+
+		// Delete handlers
+		function bindDeleteHandlers() {
+			var deleteLinks = document.querySelectorAll('.delete-subscription');
+			deleteLinks.forEach(function(link) {
+				link.onclick = function(e) {
+					e.preventDefault();
+					if (!confirm(<?php echo wp_json_encode( __( 'Are you sure you want to delete this subscription?', 'revisions-digest' ) ); ?>)) {
+						return;
+					}
+					var id = this.getAttribute('data-id');
+					var li = this.closest('li');
+
+					var formData = new FormData();
+					formData.append('action', 'revisions_digest_delete_subscription');
+					formData.append('nonce', nonce);
+					formData.append('id', id);
+
+					fetch(ajaxurl, {
+						method: 'POST',
+						body: formData
+					})
+					.then(function(response) { return response.json(); })
+					.then(function(data) {
+						if (data.success) {
+							li.remove();
+						} else {
+							alert(data.data.message);
+						}
+					});
+				};
+			});
+		}
+
+		// Edit handlers
+		function bindEditHandlers() {
+			var editLinks = document.querySelectorAll('.edit-subscription');
+			editLinks.forEach(function(link) {
+				link.onclick = function(e) {
+					e.preventDefault();
+					var id = this.getAttribute('data-id');
+					var email = this.getAttribute('data-email');
+					var frequency = this.getAttribute('data-frequency');
+
+					document.getElementById('edit-subscription-id').value = id;
+					document.getElementById('edit-subscription-email').value = email;
+					document.getElementById('edit-subscription-frequency').value = frequency;
+
+					var modal = document.getElementById('revisions-digest-edit-modal');
+					modal.style.display = 'block';
+				};
+			});
+		}
+
+		// Edit form submission
+		var editForm = document.getElementById('revisions-digest-edit-form');
+		if (editForm) {
+			editForm.addEventListener('submit', function(e) {
+				e.preventDefault();
+				var id = document.getElementById('edit-subscription-id').value;
+				var email = document.getElementById('edit-subscription-email').value;
+				var frequency = document.getElementById('edit-subscription-frequency').value;
+
+				var formData = new FormData();
+				formData.append('action', 'revisions_digest_update_subscription');
+				formData.append('nonce', nonce);
+				formData.append('id', id);
+				formData.append('email', email);
+				formData.append('frequency', frequency);
+
+				fetch(ajaxurl, {
+					method: 'POST',
+					body: formData
+				})
+				.then(function(response) { return response.json(); })
+				.then(function(data) {
+					if (data.success) {
+						// Update list item
+						var li = document.querySelector('li[data-id="' + id + '"]');
+						if (li) {
+							li.querySelector('.subscription-email').textContent = email;
+							li.querySelector('.subscription-frequency').textContent = '(' + (frequencyLabels[frequency] || frequency) + ')';
+							li.querySelector('.edit-subscription').setAttribute('data-email', email);
+							li.querySelector('.edit-subscription').setAttribute('data-frequency', frequency);
+						}
+						document.getElementById('revisions-digest-edit-modal').style.display = 'none';
+					} else {
+						alert(data.data.message);
+					}
+				});
+			});
+		}
+
+		// Cancel edit
+		var cancelBtn = document.querySelector('.cancel-edit');
+		if (cancelBtn) {
+			cancelBtn.addEventListener('click', function() {
+				document.getElementById('revisions-digest-edit-modal').style.display = 'none';
+			});
+		}
+
+		// Initial binding
+		bindDeleteHandlers();
+		bindEditHandlers();
+	})();
+	</script>
+	<?php
+}
