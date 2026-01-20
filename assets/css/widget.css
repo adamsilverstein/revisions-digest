@@ -1,0 +1,134 @@
+/**
+ * Revisions Digest Dashboard Widget Styles
+ *
+ * @package revisions-digest
+ */
+
+/* Period selector */
+.revisions-digest-period-selector {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 16px;
+	flex-wrap: wrap;
+}
+
+.revisions-digest-period-btn {
+	flex: 1;
+	min-width: 80px;
+	text-align: center;
+}
+
+.revisions-digest-period-btn.active {
+	background: #2271b1;
+	border-color: #2271b1;
+	color: #fff;
+}
+
+.revisions-digest-period-btn.active:hover,
+.revisions-digest-period-btn.active:focus {
+	background: #135e96;
+	border-color: #135e96;
+	color: #fff;
+}
+
+/* Loading state */
+.revisions-digest-loading {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 16px;
+	color: #646970;
+}
+
+.revisions-digest-loading .spinner {
+	float: none;
+	margin: 0;
+}
+
+/* Error state */
+.revisions-digest-error {
+	padding: 12px;
+	background: #fcf0f1;
+	border-left: 4px solid #d63638;
+	color: #d63638;
+	margin-bottom: 16px;
+}
+
+/* Empty state */
+.revisions-digest-empty {
+	color: #646970;
+	padding: 8px 0;
+}
+
+/* Activity blocks */
+.revisions-digest-widget .activity-block {
+	padding-bottom: 16px;
+	margin-bottom: 16px;
+	border-bottom: 1px solid #c3c4c7;
+}
+
+.revisions-digest-widget .activity-block:last-child {
+	border-bottom: none;
+	margin-bottom: 0;
+	padding-bottom: 0;
+}
+
+.revisions-digest-widget .activity-block h3 {
+	margin: 0 0 8px;
+	font-size: 14px;
+	line-height: 1.4;
+}
+
+.revisions-digest-widget .activity-block h3 a {
+	text-decoration: none;
+}
+
+.revisions-digest-edit-link {
+	font-size: 12px;
+	font-weight: normal;
+	color: #2271b1;
+	margin-left: 8px;
+}
+
+.revisions-digest-edit-link:hover,
+.revisions-digest-edit-link:focus {
+	color: #135e96;
+}
+
+.revisions-digest-widget .activity-block p {
+	margin: 0 0 8px;
+	color: #646970;
+	font-size: 13px;
+}
+
+/* Diff table */
+.revisions-digest-widget table.diff {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 12px;
+	table-layout: fixed;
+}
+
+.revisions-digest-widget table.diff td {
+	padding: 4px 8px;
+	vertical-align: top;
+	word-wrap: break-word;
+}
+
+.revisions-digest-widget table.diff .diff-deletedline {
+	background: #fcf0f1;
+}
+
+.revisions-digest-widget table.diff .diff-addedline {
+	background: #edfaef;
+}
+
+.revisions-digest-widget table.diff del {
+	background: #ffabaf;
+	text-decoration: none;
+}
+
+.revisions-digest-widget table.diff ins {
+	background: #68de7c;
+	text-decoration: none;
+}
