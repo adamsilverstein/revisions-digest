@@ -117,7 +117,6 @@ function enqueue_dashboard_assets( string $hook_suffix ) : void {
  * @return void
  */
 function widget( $no_idea, array $meta_box ) : void {
-	$default_period = Digest::PERIOD_WEEK;
 	?>
 	<div class="revisions-digest-widget">
 		<div class="revisions-digest-period-selector">
