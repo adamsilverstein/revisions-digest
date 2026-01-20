@@ -40,6 +40,12 @@ use Text_Diff;
 use Text_Diff_Renderer;
 use WP_Text_Diff_Renderer_Table;
 
+// Include the Digest helper class
+require_once __DIR__ . '/includes/class-digest.php';
+
+// Include the REST controller class
+require_once __DIR__ . '/includes/class-rest-controller.php';
+
 add_action( 'wp_dashboard_setup', function() {
 	add_meta_box(
 		'revisions_digest_dashboard',
@@ -51,28 +57,118 @@ add_action( 'wp_dashboard_setup', function() {
 	);
 } );
 
-/**
- * Undocumented function
- *
- * @param mixed $no_idea  @TODO find out what this parameter is.
- * @param array $meta_box @TODO find out what this parameter is.
- */
-function widget( $no_idea, array $meta_box ) {
-	$changes = get_digest_changes();
+// Register REST API routes.
+add_action( 'rest_api_init', function() {
+	$controller = new REST_Controller();
+	$controller->register_routes();
+} );
 
+// Enqueue dashboard assets.
+add_action( 'admin_enqueue_scripts', __NAMESPACE__ . '\enqueue_dashboard_assets' );
+
+/**
+ * Enqueue dashboard widget assets.
+ *
+ * @param string $hook_suffix The current admin page.
+ * @return void
+ */
+function enqueue_dashboard_assets( string $hook_suffix ) : void {
+	if ( 'index.php' !== $hook_suffix ) {
+		return;
+	}
+
+	$plugin_url = plugin_dir_url( __FILE__ );
+
+	wp_enqueue_style(
+		'revisions-digest-widget',
+		$plugin_url . 'assets/css/widget.css',
+		[],
+		'0.1.0'
+	);
+
+	wp_enqueue_script(
+		'revisions-digest-widget',
+		$plugin_url . 'assets/js/widget.js',
+		[ 'wp-api-fetch', 'wp-i18n' ],
+		'0.1.0',
+		true
+	);
+
+	wp_localize_script(
+		'revisions-digest-widget',
+		'revisionsDigestData',
+		[
+			'restUrl' => rest_url( 'revisions-digest/v1/digest' ),
+			'nonce'   => wp_create_nonce( 'wp_rest' ),
+			'periods' => [
+				Digest::PERIOD_DAY   => __( 'Today', 'revisions-digest' ),
+				Digest::PERIOD_WEEK  => __( 'This Week', 'revisions-digest' ),
+				Digest::PERIOD_MONTH => __( 'This Month', 'revisions-digest' ),
+			],
+		]
+	);
+}
+
+/**
+ * Dashboard widget callback.
+ *
+ * @param mixed $no_idea  The object passed to the callback.
+ * @param array $meta_box The meta box arguments.
+ * @return void
+ */
+function widget( $no_idea, array $meta_box ) : void {
+	?>
+	<div class="revisions-digest-widget">
+		<div class="revisions-digest-period-selector">
+			<button type="button" class="button revisions-digest-period-btn" data-period="<?php echo esc_attr( Digest::PERIOD_DAY ); ?>">
+				<?php esc_html_e( 'Today', 'revisions-digest' ); ?>
+			</button>
+			<button type="button" class="button revisions-digest-period-btn active" data-period="<?php echo esc_attr( Digest::PERIOD_WEEK ); ?>">
+				<?php esc_html_e( 'This Week', 'revisions-digest' ); ?>
+			</button>
+			<button type="button" class="button revisions-digest-period-btn" data-period="<?php echo esc_attr( Digest::PERIOD_MONTH ); ?>">
+				<?php esc_html_e( 'This Month', 'revisions-digest' ); ?>
+			</button>
+		</div>
+
+		<div class="revisions-digest-loading" style="display: none;">
+			<span class="spinner is-active"></span>
+			<span><?php esc_html_e( 'Loading...', 'revisions-digest' ); ?></span>
+		</div>
+
+		<div class="revisions-digest-error" style="display: none;"></div>
+
+		<div class="revisions-digest-results">
+			<?php render_widget_content( get_digest_changes() ); ?>
+		</div>
+	</div>
+	<?php
+}
+
+/**
+ * Render the widget content from changes array.
+ *
+ * @param array $changes Array of changes to render.
+ * @return void
+ */
+function render_widget_content( array $changes ) : void {
 	if ( empty( $changes ) ) {
-		esc_html_e( 'There have been no content changes in the last week', 'revisions-digest' );
+		echo '<p class="revisions-digest-empty">';
+		esc_html_e( 'There have been no content changes in this period.', 'revisions-digest' );
+		echo '</p>';
 	} else {
 		foreach ( $changes as $change ) {
 			echo '<div class="activity-block">';
 
 			printf(
-				'<h3><a href="%1$s">%2$s</a></h3>',
+				'<h3><a href="%1$s">%2$s</a> <a href="%3$s" class="revisions-digest-edit-link">%4$s</a></h3>',
 				esc_url( get_permalink( $change['post_id'] ) ),
-				get_the_title( $change['post_id'] )
+				esc_html( get_the_title( $change['post_id'] ) ),
+				esc_url( get_edit_post_link( $change['post_id'] ) ),
+				esc_html__( 'Edit', 'revisions-digest' )
 			);
 
-			$authors = array_filter( array_map( function( int $user_id ) {
+			$authors = array_filter( array_map( function ( int $user_id ) {
 				$user = get_userdata( $user_id );
 				if ( ! $user ) {
 					return false;
@@ -92,7 +188,7 @@ function widget( $no_idea, array $meta_box ) {
 			);
 
 			echo '<table class="diff">';
-			echo $change['rendered']; // WPCS: XSS ok.
+			echo $change['rendered']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Output is pre-escaped by WP_Text_Diff_Renderer_Table.
 			echo '</table>';
 
 			echo '</div>';
@@ -211,7 +307,7 @@ function render_subscription_list( array $subscriptions, string $nonce ) : void 
 }
 
 /**
- * Undocumented function
+ * Get digest changes (backward compatibility function)
  *
  * @return array[] {
  *     Array of data about the changes.
@@ -229,45 +325,32 @@ function render_subscription_list( array $subscriptions, string $nonce ) : void 
  * }
  */
 function get_digest_changes() : array {
-	$time     = strtotime( '-1 week' );
-	$modified = get_updated_posts( $time );
-	$changes  = [];
+	$digest = new Digest();
+	return $digest->get_changes();
+}
 
-	foreach ( $modified as $i => $modified_post_id ) {
-		$revisions = get_post_revisions( $modified_post_id, $time );
-		if ( empty( $revisions ) ) {
-			continue;
-		}
+/**
+ * Get digest changes for a specific period
+ *
+ * @param string $period Time period (day, week, month).
+ * @param string $group_by How to group results.
+ * @return array Digest changes.
+ */
+function get_digest_changes_for_period( string $period = Digest::PERIOD_WEEK, string $group_by = Digest::GROUP_BY_POST ) : array {
+	$digest = new Digest( $period, $group_by );
+	return $digest->get_changes();
+}
 
-		if ( ! class_exists( 'WP_Text_Diff_Renderer_Table', false ) ) {
-			require_once ABSPATH . WPINC . '/wp-diff.php';
-		}
-
-		// @TODO this includes the author of the first revision, which it should not
-		$authors = array_unique( array_map( 'intval', wp_list_pluck( $revisions, 'post_author' ) ) );
-		$bounds  = get_bound_revisions( $revisions );
-		$diff    = get_diff( $bounds['latest'], $bounds['earliest'] );
-
-		$renderer = new WP_Text_Diff_Renderer_Table( [
-			'show_split_view'        => false,
-			'leading_context_lines'  => 1,
-			'trailing_context_lines' => 1,
-		] );
-		$rendered = render_diff( $diff, $renderer );
-
-		$data = [
-			'post_id'  => $modified_post_id,
-			'latest'   => $bounds['latest'],
-			'earliest' => $bounds['earliest'],
-			'diff'     => $diff,
-			'rendered' => $rendered,
-			'authors'  => $authors,
-		];
-
-		$changes[] = $data;
-	}
-
-	return $changes;
+/**
+ * Get digest changes with intelligent descriptions
+ *
+ * @param string $period Time period (day, week, month).
+ * @param string $group_by How to group results.
+ * @return array Digest changes with descriptions.
+ */
+function get_digest_with_descriptions( string $period = Digest::PERIOD_WEEK, string $group_by = Digest::GROUP_BY_POST ) : array {
+	$digest = new Digest( $period, $group_by );
+	return $digest->get_grouped_changes();
 }
 
 /**
@@ -1196,4 +1279,148 @@ function render_subscription_scripts( string $nonce ) : void {
 	})();
 	</script>
 	<?php
+}
+
+/**
+ * Register RSS feed settings in Settings → Reading.
+ */
+add_action( 'admin_init', __NAMESPACE__ . '\register_settings' );
+
+/**
+ * Register the RSS feed setting.
+ */
+function register_settings() : void {
+	register_setting( 'reading', 'revisions_digest_rss_enabled' );
+
+	add_settings_field(
+		'revisions_digest_rss_enabled',
+		__( 'Revisions Digest RSS Feed', 'revisions-digest' ),
+		__NAMESPACE__ . '\render_rss_setting',
+		'reading',
+		'default'
+	);
+}
+
+/**
+ * Render the RSS feed setting checkbox.
+ */
+function render_rss_setting() : void {
+	$enabled = get_option( 'revisions_digest_rss_enabled', false );
+	?>
+	<label for="revisions_digest_rss_enabled">
+		<input type="hidden" name="revisions_digest_rss_enabled" value="0" />
+		<input
+			type="checkbox"
+			id="revisions_digest_rss_enabled"
+			name="revisions_digest_rss_enabled"
+			value="1"
+			<?php checked( $enabled ); ?>
+		/>
+		<?php esc_html_e( 'Enable RSS feed for recent content changes', 'revisions-digest' ); ?>
+	</label>
+	<?php if ( $enabled ) : ?>
+		<p class="description">
+			<?php
+			printf(
+				/* translators: %s: Feed URL */
+				esc_html__( 'Feed URL: %s', 'revisions-digest' ),
+				'<code>' . esc_url( get_feed_link( 'revisions-digest' ) ) . '</code>'
+			);
+			?>
+		</p>
+	<?php endif; ?>
+	<?php
+}
+
+/**
+ * Register the RSS feed endpoint.
+ */
+add_action( 'init', __NAMESPACE__ . '\register_feed' );
+
+/**
+ * Register the revisions-digest feed.
+ */
+function register_feed() : void {
+	if ( get_option( 'revisions_digest_rss_enabled', false ) ) {
+		add_feed( 'revisions-digest', __NAMESPACE__ . '\render_feed' );
+	}
+}
+
+/**
+ * Render the RSS feed.
+ */
+function render_feed() : void {
+	if ( ! is_user_logged_in() ) {
+		status_header( 403 );
+		wp_die(
+			esc_html__( 'You must be logged in to view the Revisions Digest feed.', 'revisions-digest' ),
+			esc_html__( 'Access Denied', 'revisions-digest' ),
+			array( 'response' => 403 )
+		);
+	}
+
+	header( 'Content-Type: application/rss+xml; charset=' . get_option( 'blog_charset' ) );
+
+	$changes = get_digest_changes();
+
+	echo '<?xml version="1.0" encoding="' . esc_attr( get_option( 'blog_charset' ) ) . '"?>' . "\n";
+	?>
+<rss version="2.0"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:atom="http://www.w3.org/2005/Atom"
+>
+<channel>
+	<title><?php echo esc_html( get_bloginfo( 'name' ) ); ?> - <?php esc_html_e( 'Revisions Digest', 'revisions-digest' ); ?></title>
+	<link><?php echo esc_url( home_url( '/' ) ); ?></link>
+	<description><?php esc_html_e( 'Recent content changes', 'revisions-digest' ); ?></description>
+	<lastBuildDate><?php echo esc_html( gmdate( 'r' ) ); ?></lastBuildDate>
+	<language><?php echo esc_html( get_bloginfo( 'language' ) ); ?></language>
+	<atom:link href="<?php echo esc_url( get_feed_link( 'revisions-digest' ) ); ?>" rel="self" type="application/rss+xml" />
+	<?php if ( empty( $changes ) ) : ?>
+	<!-- <?php esc_html_e( 'No content changes in the last week', 'revisions-digest' ); ?> -->
+	<?php else : ?>
+	<?php foreach ( $changes as $change ) : ?>
+	<item>
+		<title><?php echo esc_html( get_the_title( $change['post_id'] ) ); ?></title>
+		<?php $link = get_edit_post_link( $change['post_id'], 'raw' ) ?: get_permalink( $change['post_id'] ); ?>
+		<link><?php echo esc_url( $link ); ?></link>
+		<guid isPermaLink="false"><?php echo esc_html( $change['post_id'] . '-' . $change['latest']->ID ); ?></guid>
+		<pubDate><?php echo esc_html( mysql2date( 'r', $change['latest']->post_modified_gmt, false ) ); ?></pubDate>
+		<?php
+		$authors = array_filter( array_map( function( int $user_id ) {
+			$user = get_userdata( $user_id );
+			if ( ! $user ) {
+				return false;
+			}
+			return $user->display_name;
+		}, $change['authors'] ) );
+		foreach ( $authors as $author ) :
+		?>
+		<dc:creator><?php echo esc_html( $author ); ?></dc:creator>
+		<?php endforeach; ?>
+		<?php $rendered = str_replace( ']]>', ']]]]><![CDATA[>', $change['rendered'] ); ?>
+		<description><![CDATA[
+			<table class="diff">
+				<?php echo $rendered; ?>
+			</table>
+		]]></description>
+	</item>
+	<?php endforeach; ?>
+	<?php endif; ?>
+</channel>
+</rss>
+	<?php
+}
+
+/**
+ * Flush rewrite rules when the RSS feed setting changes.
+ */
+add_action( 'update_option_revisions_digest_rss_enabled', __NAMESPACE__ . '\flush_rewrite_rules_on_setting_change' );
+add_action( 'add_option_revisions_digest_rss_enabled', __NAMESPACE__ . '\flush_rewrite_rules_on_setting_change' );
+
+/**
+ * Flush rewrite rules.
+ */
+function flush_rewrite_rules_on_setting_change() : void {
+	flush_rewrite_rules();
 }
