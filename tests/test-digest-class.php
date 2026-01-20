@@ -47,8 +47,6 @@ class Test_Digest_Class extends TestCase {
 	}
 
 	public function test_digest_with_posts_and_revisions() {
-		global $wpdb;
-
 		// Create a post that was modified in the last week
 		$four_days_ago = strtotime( '-4 days' );
 		$post = self::post_factory( [
@@ -56,16 +54,20 @@ class Test_Digest_Class extends TestCase {
 			'post_content'  => 'Original content',
 		] );
 
-		// Create a revision for this post
-		$revision_id = wp_save_post_revision( $post->ID );
-		if ( $revision_id ) {
-			$wpdb->update( $wpdb->posts, [
-				'post_content' => 'Updated content with changes',
-				'post_modified' => date( 'Y-m-d H:i:s', $four_days_ago + 3600 ), // 1 hour later
-			], [
-				'ID' => $revision_id,
-			] );
-		}
+		// Create two revisions for this post
+		wp_update_post( [
+			'ID'           => $post->ID,
+			'post_content' => 'Updated content v1',
+			'post_modified'=> date( 'Y-m-d H:i:s', $four_days_ago + 3600 ),
+		] );
+		wp_save_post_revision( $post->ID );
+
+		wp_update_post( [
+			'ID'           => $post->ID,
+			'post_content' => 'Updated content v2',
+			'post_modified'=> date( 'Y-m-d H:i:s', $four_days_ago + 7200 ),
+		] );
+		wp_save_post_revision( $post->ID );
 
 		$digest = new Digest();
 		$changes = $digest->get_changes();

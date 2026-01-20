@@ -302,9 +302,20 @@ class Digest {
 				return (string) $change['authors'][0];
 
 			case self::GROUP_BY_TAXONOMY:
-				// For now, group by post categories
-				$categories = get_the_category( $change['post_id'] );
-				return ! empty( $categories ) ? $categories[0]->name : 'uncategorized';
+				// Get all taxonomies for the post
+				$terms = [];
+				$taxonomies = get_object_taxonomies( get_post_type( $change['post_id'] ) );
+				
+				foreach ( $taxonomies as $taxonomy ) {
+					$post_terms = get_the_terms( $change['post_id'], $taxonomy );
+					if ( ! empty( $post_terms ) && ! is_wp_error( $post_terms ) ) {
+						foreach ( $post_terms as $term ) {
+							$terms[] = $term->name;
+						}
+					}
+				}
+				
+				return ! empty( $terms ) ? implode( ', ', $terms ) : 'uncategorized';
 
 			case self::GROUP_BY_POST:
 			default:
@@ -462,7 +473,7 @@ class Digest {
 		$total_changes = 0;
 
 		foreach ( $edits as $edit ) {
-			if ( method_exists( $edit, 'orig' ) && method_exists( $edit, 'final' ) ) {
+			if ( isset( $edit->orig, $edit->final ) ) {
 				$total_changes += max( count( $edit->orig ), count( $edit->final ) );
 			}
 		}
