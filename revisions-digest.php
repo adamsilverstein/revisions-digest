@@ -374,7 +374,8 @@ function render_feed() : void {
 	<?php foreach ( $changes as $change ) : ?>
 	<item>
 		<title><?php echo esc_html( get_the_title( $change['post_id'] ) ); ?></title>
-		<link><?php echo esc_url( get_edit_post_link( $change['post_id'], 'raw' ) ); ?></link>
+		<?php $link = get_edit_post_link( $change['post_id'], 'raw' ) ?: get_permalink( $change['post_id'] ); ?>
+		<link><?php echo esc_url( $link ); ?></link>
 		<guid isPermaLink="false"><?php echo esc_html( $change['post_id'] . '-' . $change['latest']->ID ); ?></guid>
 		<pubDate><?php echo esc_html( mysql2date( 'r', $change['latest']->post_modified_gmt, false ) ); ?></pubDate>
 		<?php
