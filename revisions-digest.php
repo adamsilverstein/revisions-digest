@@ -206,7 +206,12 @@ function render_widget_content( array $changes ) : void {
  */
 function render_subscription_section() : void {
 	$current_user = wp_get_current_user();
-	$subscriptions = get_email_subscriptions();
+	$subscriptions = array_filter(
+		get_email_subscriptions(),
+		static function( array $subscription ) use ( $current_user ) : bool {
+			return (int) ( $subscription['user_id'] ?? 0 ) === $current_user->ID;
+		}
+	);
 	$nonce = wp_create_nonce( 'revisions_digest_subscription' );
 	?>
 	<div class="activity-block revisions-digest-subscriptions">
@@ -256,9 +261,7 @@ function render_subscription_form( string $default_email, string $nonce ) : void
  * @param string $nonce         The security nonce.
  */
 function render_subscription_list( array $subscriptions, string $nonce ) : void {
-	if ( empty( $subscriptions ) ) {
-		return;
-	}
+	$has_subscriptions = ! empty( $subscriptions );
 
 	$frequency_labels = [
 		'daily'   => __( 'Daily', 'revisions-digest' ),
@@ -266,20 +269,24 @@ function render_subscription_list( array $subscriptions, string $nonce ) : void 
 		'monthly' => __( 'Monthly', 'revisions-digest' ),
 	];
 	?>
-	<h4><?php esc_html_e( 'Current Subscriptions', 'revisions-digest' ); ?></h4>
-	<ul id="revisions-digest-subscription-list">
-		<?php foreach ( $subscriptions as $id => $subscription ) : ?>
-			<li data-id="<?php echo esc_attr( $id ); ?>">
-				<span class="subscription-email"><?php echo esc_html( $subscription['email'] ); ?></span>
-				<span class="subscription-frequency">(<?php echo esc_html( $frequency_labels[ $subscription['frequency'] ] ?? $subscription['frequency'] ); ?>)</span>
-				<span class="subscription-actions">
-					<a href="#" class="edit-subscription" data-id="<?php echo esc_attr( $id ); ?>" data-email="<?php echo esc_attr( $subscription['email'] ); ?>" data-frequency="<?php echo esc_attr( $subscription['frequency'] ); ?>"><?php esc_html_e( 'Edit', 'revisions-digest' ); ?></a>
-					|
-					<a href="#" class="delete-subscription" data-id="<?php echo esc_attr( $id ); ?>"><?php esc_html_e( 'Delete', 'revisions-digest' ); ?></a>
-				</span>
-			</li>
-		<?php endforeach; ?>
-	</ul>
+	<?php if ( $has_subscriptions ) : ?>
+		<h4><?php esc_html_e( 'Current Subscriptions', 'revisions-digest' ); ?></h4>
+		<ul id="revisions-digest-subscription-list">
+			<?php foreach ( $subscriptions as $id => $subscription ) : ?>
+				<li data-id="<?php echo esc_attr( $id ); ?>">
+					<span class="subscription-email"><?php echo esc_html( $subscription['email'] ); ?></span>
+					<span class="subscription-frequency">(<?php echo esc_html( $frequency_labels[ $subscription['frequency'] ] ?? $subscription['frequency'] ); ?>)</span>
+					<span class="subscription-actions">
+						<a href="#" class="edit-subscription" data-id="<?php echo esc_attr( $id ); ?>" data-email="<?php echo esc_attr( $subscription['email'] ); ?>" data-frequency="<?php echo esc_attr( $subscription['frequency'] ); ?>"><?php esc_html_e( 'Edit', 'revisions-digest' ); ?></a>
+						|
+						<a href="#" class="delete-subscription" data-id="<?php echo esc_attr( $id ); ?>"><?php esc_html_e( 'Delete', 'revisions-digest' ); ?></a>
+					</span>
+				</li>
+			<?php endforeach; ?>
+		</ul>
+	<?php else : ?>
+		<ul id="revisions-digest-subscription-list" class="hidden"></ul>
+	<?php endif; ?>
 
 	<!-- Edit modal -->
 	<div id="revisions-digest-edit-modal" style="display:none;">
@@ -971,6 +978,23 @@ add_action( 'wp_ajax_revisions_digest_add_subscription', function() : void {
 } );
 
 /**
+ * Verify subscription ownership for AJAX requests.
+ *
+ * @param string $subscription_id The subscription ID to verify.
+ * @return array|null The subscription data if verified, null otherwise (with error sent via AJAX).
+ */
+function verify_subscription_ownership( string $subscription_id ) : ?array {
+	$subscription = get_subscription( $subscription_id );
+	if ( ! $subscription ) {
+		wp_send_json_error( [ 'message' => __( 'Subscription not found.', 'revisions-digest' ) ] );
+	}
+	if ( (int) ( $subscription['user_id'] ?? 0 ) !== get_current_user_id() && ! current_user_can( 'manage_options' ) ) {
+		wp_send_json_error( [ 'message' => __( 'Permission denied.', 'revisions-digest' ) ] );
+	}
+	return $subscription;
+}
+
+/**
  * AJAX handler for updating a subscription.
  */
 add_action( 'wp_ajax_revisions_digest_update_subscription', function() : void {
@@ -983,6 +1007,9 @@ add_action( 'wp_ajax_revisions_digest_update_subscription', function() : void {
 	$id        = isset( $_POST['id'] ) ? sanitize_text_field( wp_unslash( $_POST['id'] ) ) : '';
 	$email     = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
 	$frequency = isset( $_POST['frequency'] ) ? sanitize_text_field( wp_unslash( $_POST['frequency'] ) ) : '';
+
+	// Verify subscription ownership.
+	verify_subscription_ownership( $id );
 
 	$data = [];
 	if ( $email ) {
@@ -1017,6 +1044,9 @@ add_action( 'wp_ajax_revisions_digest_delete_subscription', function() : void {
 	}
 
 	$id = isset( $_POST['id'] ) ? sanitize_text_field( wp_unslash( $_POST['id'] ) ) : '';
+
+	// Verify subscription ownership.
+	verify_subscription_ownership( $id );
 
 	$result = delete_email_subscription( $id );
 
@@ -1092,6 +1122,9 @@ function render_subscription_scripts( string $nonce ) : void {
 			border-radius: 4px;
 			box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 		}
+		#revisions-digest-subscription-list.hidden {
+			display: none;
+		}
 	</style>
 	<script>
 	(function() {
@@ -1146,6 +1179,8 @@ function render_subscription_scripts( string $nonce ) : void {
 							list.id = 'revisions-digest-subscription-list';
 							addForm.parentNode.appendChild(list);
 						}
+						// Remove hidden class if present
+						list.classList.remove('hidden');
 						var li = document.createElement('li');
 						li.setAttribute('data-id', data.data.id);
 						li.innerHTML = '<span class="subscription-email">' + escapeHtml(data.data.email) + '</span> ' +
