@@ -40,28 +40,34 @@ use Text_Diff;
 use Text_Diff_Renderer;
 use WP_Text_Diff_Renderer_Table;
 
-// Include the Digest helper class
+// Include the Digest helper class.
 require_once __DIR__ . '/includes/class-digest.php';
 
-// Include the REST controller class
+// Include the REST controller class.
 require_once __DIR__ . '/includes/class-rest-controller.php';
 
-add_action( 'wp_dashboard_setup', function() {
-	add_meta_box(
-		'revisions_digest_dashboard',
-		__( 'Recent Changes', 'revisions-digest' ),
-		__NAMESPACE__ . '\widget',
-		'index.php',
-		'column3',
-		'high'
-	);
-} );
+add_action(
+	'wp_dashboard_setup',
+	function () {
+		add_meta_box(
+			'revisions_digest_dashboard',
+			__( 'Recent Changes', 'revisions-digest' ),
+			__NAMESPACE__ . '\widget',
+			'index.php',
+			'column3',
+			'high'
+		);
+	}
+);
 
 // Register REST API routes.
-add_action( 'rest_api_init', function() {
-	$controller = new REST_Controller();
-	$controller->register_routes();
-} );
+add_action(
+	'rest_api_init',
+	function () {
+		$controller = new REST_Controller();
+		$controller->register_routes();
+	}
+);
 
 // Enqueue dashboard assets.
 add_action( 'admin_enqueue_scripts', __NAMESPACE__ . '\enqueue_dashboard_assets' );
@@ -72,7 +78,7 @@ add_action( 'admin_enqueue_scripts', __NAMESPACE__ . '\enqueue_dashboard_assets'
  * @param string $hook_suffix The current admin page.
  * @return void
  */
-function enqueue_dashboard_assets( string $hook_suffix ) : void {
+function enqueue_dashboard_assets( string $hook_suffix ): void {
 	if ( 'index.php' !== $hook_suffix ) {
 		return;
 	}
@@ -116,7 +122,7 @@ function enqueue_dashboard_assets( string $hook_suffix ) : void {
  * @param array $meta_box The meta box arguments.
  * @return void
  */
-function widget( $no_idea, array $meta_box ) : void {
+function widget( $no_idea, array $meta_box ): void {
 	?>
 	<div class="revisions-digest-widget">
 		<div class="revisions-digest-period-selector">
@@ -151,7 +157,7 @@ function widget( $no_idea, array $meta_box ) : void {
  * @param array $changes Array of changes to render.
  * @return void
  */
-function render_widget_content( array $changes ) : void {
+function render_widget_content( array $changes ): void {
 	if ( empty( $changes ) ) {
 		echo '<p class="revisions-digest-empty">';
 		esc_html_e( 'There have been no content changes in this period.', 'revisions-digest' );
@@ -168,14 +174,19 @@ function render_widget_content( array $changes ) : void {
 				esc_html__( 'Edit', 'revisions-digest' )
 			);
 
-			$authors = array_filter( array_map( function ( int $user_id ) {
-				$user = get_userdata( $user_id );
-				if ( ! $user ) {
-					return false;
-				}
+			$authors = array_filter(
+				array_map(
+					function ( int $user_id ) {
+						$user = get_userdata( $user_id );
+						if ( ! $user ) {
+								return false;
+						}
 
-				return $user->display_name;
-			}, $change['authors'] ) );
+						return $user->display_name;
+					},
+					$change['authors']
+				)
+			);
 
 			/* translators: %l: comma-separated list of author names */
 			$changes_by = wp_sprintf(
@@ -204,15 +215,15 @@ function render_widget_content( array $changes ) : void {
 /**
  * Render the email subscription section in the widget.
  */
-function render_subscription_section() : void {
-	$current_user = wp_get_current_user();
+function render_subscription_section(): void {
+	$current_user  = wp_get_current_user();
 	$subscriptions = array_filter(
 		get_email_subscriptions(),
-		static function( array $subscription ) use ( $current_user ) : bool {
+		static function ( array $subscription ) use ( $current_user ): bool {
 			return (int) ( $subscription['user_id'] ?? 0 ) === $current_user->ID;
 		}
 	);
-	$nonce = wp_create_nonce( 'revisions_digest_subscription' );
+	$nonce         = wp_create_nonce( 'revisions_digest_subscription' );
 	?>
 	<div class="activity-block revisions-digest-subscriptions">
 		<h3><?php esc_html_e( 'Email Subscriptions', 'revisions-digest' ); ?></h3>
@@ -231,7 +242,7 @@ function render_subscription_section() : void {
  * @param string $default_email The default email address.
  * @param string $nonce         The security nonce.
  */
-function render_subscription_form( string $default_email, string $nonce ) : void {
+function render_subscription_form( string $default_email, string $nonce ): void {
 	?>
 	<form id="revisions-digest-add-subscription" class="revisions-digest-form">
 		<p>
@@ -260,7 +271,7 @@ function render_subscription_form( string $default_email, string $nonce ) : void
  * @param array  $subscriptions The subscriptions array.
  * @param string $nonce         The security nonce.
  */
-function render_subscription_list( array $subscriptions, string $nonce ) : void {
+function render_subscription_list( array $subscriptions, string $nonce ): void {
 	$has_subscriptions = ! empty( $subscriptions );
 
 	$frequency_labels = [
@@ -331,7 +342,7 @@ function render_subscription_list( array $subscriptions, string $nonce ) : void 
  *     }
  * }
  */
-function get_digest_changes() : array {
+function get_digest_changes(): array {
 	$digest = new Digest();
 	return $digest->get_changes();
 }
@@ -343,7 +354,7 @@ function get_digest_changes() : array {
  * @param string $group_by How to group results.
  * @return array Digest changes.
  */
-function get_digest_changes_for_period( string $period = Digest::PERIOD_WEEK, string $group_by = Digest::GROUP_BY_POST ) : array {
+function get_digest_changes_for_period( string $period = Digest::PERIOD_WEEK, string $group_by = Digest::GROUP_BY_POST ): array {
 	$digest = new Digest( $period, $group_by );
 	return $digest->get_changes();
 }
@@ -355,7 +366,7 @@ function get_digest_changes_for_period( string $period = Digest::PERIOD_WEEK, st
  * @param string $group_by How to group results.
  * @return array Digest changes with descriptions.
  */
-function get_digest_with_descriptions( string $period = Digest::PERIOD_WEEK, string $group_by = Digest::GROUP_BY_POST ) : array {
+function get_digest_with_descriptions( string $period = Digest::PERIOD_WEEK, string $group_by = Digest::GROUP_BY_POST ): array {
 	$digest = new Digest( $period, $group_by );
 	return $digest->get_grouped_changes();
 }
@@ -366,19 +377,21 @@ function get_digest_with_descriptions( string $period = Digest::PERIOD_WEEK, str
  * @param int $timeframe Fetch posts which have been modified since this timestamp.
  * @return int[] Array of post IDs.
  */
-function get_updated_posts( int $timeframe ) : array {
-	$earliest = date( 'Y-m-d H:i:s', $timeframe );
+function get_updated_posts( int $timeframe ): array {
+	$earliest = gmdate( 'Y-m-d H:i:s', $timeframe );
 
 	// Fetch IDs of all posts that have been modified within the time period.
-	$modified = new WP_Query( [
-		'fields'      => 'ids',
-		'post_type'   => 'page', // Just Pages for now.
-		'post_status' => 'publish',
-		'date_query'  => [
-			'after'  => $earliest,
-			'column' => 'post_modified',
-		],
-	] );
+	$modified = new WP_Query(
+		[
+			'fields'      => 'ids',
+			'post_type'   => 'page', // Just Pages for now.
+			'post_status' => 'publish',
+			'date_query'  => [
+				'after'  => $earliest,
+				'column' => 'post_modified',
+			],
+		]
+	);
 
 	// @TODO this might prime the post cache
 	/**
@@ -399,8 +412,8 @@ function get_updated_posts( int $timeframe ) : array {
  * @param int $timeframe Fetch revisions since this timestamp.
  * @return WP_Post[] Array of post revisions.
  */
-function get_post_revisions( int $post_id, int $timeframe ) : array {
-	$earliest      = date( 'Y-m-d H: i: s', $timeframe );
+function get_post_revisions( int $post_id, int $timeframe ): array {
+	$earliest      = gmdate( 'Y-m-d H: i: s', $timeframe );
 	$revisions     = wp_get_post_revisions( $post_id );
 	$use_revisions = [];
 
@@ -432,7 +445,7 @@ function get_post_revisions( int $post_id, int $timeframe ) : array {
  *     @type WP_Post $earliest The earlist revision.
  * }
  */
-function get_bound_revisions( array $revisions ) : array {
+function get_bound_revisions( array $revisions ): array {
 	$latest   = reset( $revisions );
 	$earliest = end( $revisions );
 
@@ -446,7 +459,7 @@ function get_bound_revisions( array $revisions ) : array {
  * @param WP_Post $earliest The earliest revision.
  * @return Text_Diff The diff object.
  */
-function get_diff( WP_Post $latest, WP_Post $earliest ) : Text_Diff {
+function get_diff( WP_Post $latest, WP_Post $earliest ): Text_Diff {
 	if ( ! class_exists( 'Text_Diff', false ) ) {
 		require_once ABSPATH . WPINC . '/wp-diff.php';
 	}
@@ -466,7 +479,7 @@ function get_diff( WP_Post $latest, WP_Post $earliest ) : Text_Diff {
  * @param Text_Diff_Renderer $renderer  The diff renderer.
  * @return string The rendered diff.
  */
-function render_diff( Text_Diff $text_diff, Text_Diff_Renderer $renderer ) : string {
+function render_diff( Text_Diff $text_diff, Text_Diff_Renderer $renderer ): string {
 	$diff = $renderer->render( $text_diff );
 
 	return $diff;
@@ -477,7 +490,7 @@ function render_diff( Text_Diff $text_diff, Text_Diff_Renderer $renderer ) : str
  *
  * @return array Array of subscriptions keyed by subscription ID.
  */
-function get_email_subscriptions() : array {
+function get_email_subscriptions(): array {
 	return get_option( 'revisions_digest_subscriptions', [] );
 }
 
@@ -487,7 +500,7 @@ function get_email_subscriptions() : array {
  * @param string $id The subscription ID.
  * @return array|null The subscription data or null if not found.
  */
-function get_subscription( string $id ) : ?array {
+function get_subscription( string $id ): ?array {
 	$subscriptions = get_email_subscriptions();
 	return $subscriptions[ $id ] ?? null;
 }
@@ -602,24 +615,27 @@ function delete_email_subscription( string $id ) {
  * @param array $schedules Existing cron schedules.
  * @return array Modified cron schedules.
  */
-add_filter( 'cron_schedules', function( array $schedules ) : array {
-	$schedules['weekly'] = [
-		'interval' => WEEK_IN_SECONDS,
-		'display'  => __( 'Once Weekly', 'revisions-digest' ),
-	];
+add_filter(
+	'cron_schedules',
+	function ( array $schedules ): array {
+		$schedules['weekly'] = [
+			'interval' => WEEK_IN_SECONDS,
+			'display'  => __( 'Once Weekly', 'revisions-digest' ),
+		];
 
-	$schedules['monthly'] = [
-		'interval' => MONTH_IN_SECONDS,
-		'display'  => __( 'Once Monthly', 'revisions-digest' ),
-	];
+		$schedules['monthly'] = [
+			'interval' => MONTH_IN_SECONDS,
+			'display'  => __( 'Once Monthly', 'revisions-digest' ),
+		];
 
-	return $schedules;
-} );
+		return $schedules;
+	}
+);
 
 /**
  * Schedule cron events on plugin activation.
  */
-function activate_cron_events() : void {
+function activate_cron_events(): void {
 	if ( ! wp_next_scheduled( 'revisions_digest_send_emails' ) ) {
 		wp_schedule_event( time(), 'hourly', 'revisions_digest_send_emails' );
 	}
@@ -629,7 +645,7 @@ register_activation_hook( __FILE__, __NAMESPACE__ . '\activate_cron_events' );
 /**
  * Clear cron events on plugin deactivation.
  */
-function deactivate_cron_events() : void {
+function deactivate_cron_events(): void {
 	$timestamp = wp_next_scheduled( 'revisions_digest_send_emails' );
 	if ( $timestamp ) {
 		wp_unschedule_event( $timestamp, 'revisions_digest_send_emails' );
@@ -640,15 +656,18 @@ register_deactivation_hook( __FILE__, __NAMESPACE__ . '\deactivate_cron_events' 
 /**
  * Process email subscriptions and send digests when due.
  */
-add_action( 'revisions_digest_send_emails', function() : void {
-	$subscriptions = get_email_subscriptions();
+add_action(
+	'revisions_digest_send_emails',
+	function (): void {
+		$subscriptions = get_email_subscriptions();
 
-	foreach ( $subscriptions as $id => $subscription ) {
-		if ( should_send_digest( $subscription ) ) {
-			send_digest_email( $id );
+		foreach ( $subscriptions as $id => $subscription ) {
+			if ( should_send_digest( $subscription ) ) {
+				send_digest_email( $id );
+			}
 		}
 	}
-} );
+);
 
 /**
  * Determine if a digest should be sent for a subscription.
@@ -656,7 +675,7 @@ add_action( 'revisions_digest_send_emails', function() : void {
  * @param array $subscription The subscription data.
  * @return bool Whether the digest should be sent.
  */
-function should_send_digest( array $subscription ) : bool {
+function should_send_digest( array $subscription ): bool {
 	$last_sent = $subscription['last_sent'] ?? 0;
 	$frequency = $subscription['frequency'] ?? 'weekly';
 	$now       = time();
@@ -678,7 +697,7 @@ function should_send_digest( array $subscription ) : bool {
  * @param string $frequency The frequency (daily, weekly, monthly).
  * @return string The timeframe string for strtotime.
  */
-function get_timeframe_for_frequency( string $frequency ) : string {
+function get_timeframe_for_frequency( string $frequency ): string {
 	$timeframes = [
 		'daily'   => '-1 day',
 		'weekly'  => '-1 week',
@@ -694,7 +713,7 @@ function get_timeframe_for_frequency( string $frequency ) : string {
  * @param string $timeframe The timeframe string for strtotime.
  * @return array Array of changes.
  */
-function get_digest_changes_for_timeframe( string $timeframe ) : array {
+function get_digest_changes_for_timeframe( string $timeframe ): array {
 	$time     = strtotime( $timeframe );
 	$modified = get_updated_posts( $time );
 	$changes  = [];
@@ -713,11 +732,13 @@ function get_digest_changes_for_timeframe( string $timeframe ) : array {
 		$bounds  = get_bound_revisions( $revisions );
 		$diff    = get_diff( $bounds['latest'], $bounds['earliest'] );
 
-		$renderer = new WP_Text_Diff_Renderer_Table( [
-			'show_split_view'        => false,
-			'leading_context_lines'  => 1,
-			'trailing_context_lines' => 1,
-		] );
+		$renderer = new WP_Text_Diff_Renderer_Table(
+			[
+				'show_split_view'        => false,
+				'leading_context_lines'  => 1,
+				'trailing_context_lines' => 1,
+			]
+		);
 		$rendered = render_diff( $diff, $renderer );
 
 		$changes[] = [
@@ -739,7 +760,7 @@ function get_digest_changes_for_timeframe( string $timeframe ) : array {
  * @param int $changes_count The number of changes.
  * @return string The email subject.
  */
-function get_email_subject( int $changes_count ) : string {
+function get_email_subject( int $changes_count ): string {
 	$site_name = get_bloginfo( 'name' );
 
 	if ( 0 === $changes_count ) {
@@ -769,7 +790,7 @@ function get_email_subject( int $changes_count ) : string {
  * @param array $changes The array of changes.
  * @return string The HTML email content.
  */
-function get_email_content( array $changes ) : string {
+function get_email_content( array $changes ): string {
 	$site_name = get_bloginfo( 'name' );
 	$site_url  = home_url();
 
@@ -858,6 +879,7 @@ function get_email_content( array $changes ) : string {
 	</style>
 </head>
 <body>
+	<?php /* translators: %s: Site name */ ?>
 	<h1><?php echo esc_html( sprintf( __( 'Revisions Digest for %s', 'revisions-digest' ), $site_name ) ); ?></h1>
 
 	<div class="preamble">
@@ -876,19 +898,26 @@ function get_email_content( array $changes ) : string {
 				</h2>
 
 				<?php
-				$authors = array_filter( array_map( function( int $user_id ) {
-					$user = get_userdata( $user_id );
-					return $user ? $user->display_name : false;
-				}, $change['authors'] ) );
+				$authors = array_filter(
+					array_map(
+						function ( int $user_id ) {
+							$user = get_userdata( $user_id );
+							return $user ? $user->display_name : false;
+						},
+						$change['authors']
+					)
+				);
 				?>
 
 				<p class="authors">
 					<?php
-					echo esc_html( wp_sprintf(
+					echo esc_html(
+						wp_sprintf(
 						/* translators: %l: comma-separated list of author names */
-						__( 'Changed by %l', 'revisions-digest' ),
-						$authors
-					) );
+							__( 'Changed by %l', 'revisions-digest' ),
+							$authors
+						)
+					);
 					?>
 				</p>
 
@@ -923,7 +952,7 @@ function get_email_content( array $changes ) : string {
  * @param string $subscription_id The subscription ID.
  * @return bool Whether the email was sent successfully.
  */
-function send_digest_email( string $subscription_id ) : bool {
+function send_digest_email( string $subscription_id ): bool {
 	$subscription = get_subscription( $subscription_id );
 	if ( ! $subscription ) {
 		return false;
@@ -950,32 +979,39 @@ function send_digest_email( string $subscription_id ) : bool {
 /**
  * AJAX handler for adding a subscription.
  */
-add_action( 'wp_ajax_revisions_digest_add_subscription', function() : void {
-	check_ajax_referer( 'revisions_digest_subscription', 'nonce' );
+add_action(
+	'wp_ajax_revisions_digest_add_subscription',
+	function (): void {
+		check_ajax_referer( 'revisions_digest_subscription', 'nonce' );
 
-	if ( ! current_user_can( 'edit_posts' ) ) {
-		wp_send_json_error( [ 'message' => __( 'Permission denied.', 'revisions-digest' ) ] );
+		if ( ! current_user_can( 'edit_posts' ) ) {
+			wp_send_json_error( [ 'message' => __( 'Permission denied.', 'revisions-digest' ) ] );
+		}
+
+		$email     = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
+		$frequency = isset( $_POST['frequency'] ) ? sanitize_text_field( wp_unslash( $_POST['frequency'] ) ) : 'weekly';
+
+		$result = add_email_subscription(
+			[
+				'email'     => $email,
+				'frequency' => $frequency,
+			]
+		);
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( [ 'message' => $result->get_error_message() ] );
+		}
+
+		wp_send_json_success(
+			[
+				'message'   => __( 'Subscription added successfully.', 'revisions-digest' ),
+				'id'        => $result,
+				'email'     => $email,
+				'frequency' => $frequency,
+			]
+		);
 	}
-
-	$email     = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
-	$frequency = isset( $_POST['frequency'] ) ? sanitize_text_field( wp_unslash( $_POST['frequency'] ) ) : 'weekly';
-
-	$result = add_email_subscription( [
-		'email'     => $email,
-		'frequency' => $frequency,
-	] );
-
-	if ( is_wp_error( $result ) ) {
-		wp_send_json_error( [ 'message' => $result->get_error_message() ] );
-	}
-
-	wp_send_json_success( [
-		'message' => __( 'Subscription added successfully.', 'revisions-digest' ),
-		'id'      => $result,
-		'email'   => $email,
-		'frequency' => $frequency,
-	] );
-} );
+);
 
 /**
  * Verify subscription ownership for AJAX requests.
@@ -983,7 +1019,7 @@ add_action( 'wp_ajax_revisions_digest_add_subscription', function() : void {
  * @param string $subscription_id The subscription ID to verify.
  * @return array|null The subscription data if verified, null otherwise (with error sent via AJAX).
  */
-function verify_subscription_ownership( string $subscription_id ) : ?array {
+function verify_subscription_ownership( string $subscription_id ): ?array {
 	$subscription = get_subscription( $subscription_id );
 	if ( ! $subscription ) {
 		wp_send_json_error( [ 'message' => __( 'Subscription not found.', 'revisions-digest' ) ] );
@@ -997,75 +1033,85 @@ function verify_subscription_ownership( string $subscription_id ) : ?array {
 /**
  * AJAX handler for updating a subscription.
  */
-add_action( 'wp_ajax_revisions_digest_update_subscription', function() : void {
-	check_ajax_referer( 'revisions_digest_subscription', 'nonce' );
+add_action(
+	'wp_ajax_revisions_digest_update_subscription',
+	function (): void {
+		check_ajax_referer( 'revisions_digest_subscription', 'nonce' );
 
-	if ( ! current_user_can( 'edit_posts' ) ) {
-		wp_send_json_error( [ 'message' => __( 'Permission denied.', 'revisions-digest' ) ] );
+		if ( ! current_user_can( 'edit_posts' ) ) {
+			wp_send_json_error( [ 'message' => __( 'Permission denied.', 'revisions-digest' ) ] );
+		}
+
+		$id        = isset( $_POST['id'] ) ? sanitize_text_field( wp_unslash( $_POST['id'] ) ) : '';
+		$email     = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
+		$frequency = isset( $_POST['frequency'] ) ? sanitize_text_field( wp_unslash( $_POST['frequency'] ) ) : '';
+
+		// Verify subscription ownership.
+		verify_subscription_ownership( $id );
+
+		$data = [];
+		if ( $email ) {
+			$data['email'] = $email;
+		}
+		if ( $frequency ) {
+			$data['frequency'] = $frequency;
+		}
+
+		$result = update_email_subscription( $id, $data );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( [ 'message' => $result->get_error_message() ] );
+		}
+
+		wp_send_json_success(
+			[
+				'message'   => __( 'Subscription updated successfully.', 'revisions-digest' ),
+				'id'        => $id,
+				'email'     => $email,
+				'frequency' => $frequency,
+			]
+		);
 	}
-
-	$id        = isset( $_POST['id'] ) ? sanitize_text_field( wp_unslash( $_POST['id'] ) ) : '';
-	$email     = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
-	$frequency = isset( $_POST['frequency'] ) ? sanitize_text_field( wp_unslash( $_POST['frequency'] ) ) : '';
-
-	// Verify subscription ownership.
-	verify_subscription_ownership( $id );
-
-	$data = [];
-	if ( $email ) {
-		$data['email'] = $email;
-	}
-	if ( $frequency ) {
-		$data['frequency'] = $frequency;
-	}
-
-	$result = update_email_subscription( $id, $data );
-
-	if ( is_wp_error( $result ) ) {
-		wp_send_json_error( [ 'message' => $result->get_error_message() ] );
-	}
-
-	wp_send_json_success( [
-		'message'   => __( 'Subscription updated successfully.', 'revisions-digest' ),
-		'id'        => $id,
-		'email'     => $email,
-		'frequency' => $frequency,
-	] );
-} );
+);
 
 /**
  * AJAX handler for deleting a subscription.
  */
-add_action( 'wp_ajax_revisions_digest_delete_subscription', function() : void {
-	check_ajax_referer( 'revisions_digest_subscription', 'nonce' );
+add_action(
+	'wp_ajax_revisions_digest_delete_subscription',
+	function (): void {
+		check_ajax_referer( 'revisions_digest_subscription', 'nonce' );
 
-	if ( ! current_user_can( 'edit_posts' ) ) {
-		wp_send_json_error( [ 'message' => __( 'Permission denied.', 'revisions-digest' ) ] );
+		if ( ! current_user_can( 'edit_posts' ) ) {
+			wp_send_json_error( [ 'message' => __( 'Permission denied.', 'revisions-digest' ) ] );
+		}
+
+		$id = isset( $_POST['id'] ) ? sanitize_text_field( wp_unslash( $_POST['id'] ) ) : '';
+
+		// Verify subscription ownership.
+		verify_subscription_ownership( $id );
+
+		$result = delete_email_subscription( $id );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( [ 'message' => $result->get_error_message() ] );
+		}
+
+		wp_send_json_success(
+			[
+				'message' => __( 'Subscription deleted successfully.', 'revisions-digest' ),
+				'id'      => $id,
+			]
+		);
 	}
-
-	$id = isset( $_POST['id'] ) ? sanitize_text_field( wp_unslash( $_POST['id'] ) ) : '';
-
-	// Verify subscription ownership.
-	verify_subscription_ownership( $id );
-
-	$result = delete_email_subscription( $id );
-
-	if ( is_wp_error( $result ) ) {
-		wp_send_json_error( [ 'message' => $result->get_error_message() ] );
-	}
-
-	wp_send_json_success( [
-		'message' => __( 'Subscription deleted successfully.', 'revisions-digest' ),
-		'id'      => $id,
-	] );
-} );
+);
 
 /**
  * Render the inline JavaScript for subscription management.
  *
  * @param string $nonce The security nonce.
  */
-function render_subscription_scripts( string $nonce ) : void {
+function render_subscription_scripts( string $nonce ): void {
 	$frequency_labels = [
 		'daily'   => __( 'Daily', 'revisions-digest' ),
 		'weekly'  => __( 'Weekly', 'revisions-digest' ),
@@ -1324,7 +1370,7 @@ add_action( 'admin_init', __NAMESPACE__ . '\register_settings' );
 /**
  * Register the RSS feed setting.
  */
-function register_settings() : void {
+function register_settings(): void {
 	register_setting( 'reading', 'revisions_digest_rss_enabled' );
 
 	add_settings_field(
@@ -1339,7 +1385,7 @@ function register_settings() : void {
 /**
  * Render the RSS feed setting checkbox.
  */
-function render_rss_setting() : void {
+function render_rss_setting(): void {
 	$enabled = get_option( 'revisions_digest_rss_enabled', false );
 	?>
 	<label for="revisions_digest_rss_enabled">
@@ -1375,7 +1421,7 @@ add_action( 'init', __NAMESPACE__ . '\register_feed' );
 /**
  * Register the revisions-digest feed.
  */
-function register_feed() : void {
+function register_feed(): void {
 	if ( get_option( 'revisions_digest_rss_enabled', false ) ) {
 		add_feed( 'revisions-digest', __NAMESPACE__ . '\render_feed' );
 	}
@@ -1384,7 +1430,7 @@ function register_feed() : void {
 /**
  * Render the RSS feed.
  */
-function render_feed() : void {
+function render_feed(): void {
 	if ( ! is_user_logged_in() ) {
 		status_header( 403 );
 		wp_die(
@@ -1414,29 +1460,40 @@ function render_feed() : void {
 	<?php if ( empty( $changes ) ) : ?>
 	<!-- <?php esc_html_e( 'No content changes in the last week', 'revisions-digest' ); ?> -->
 	<?php else : ?>
-	<?php foreach ( $changes as $change ) : ?>
+		<?php foreach ( $changes as $change ) : ?>
 	<item>
 		<title><?php echo esc_html( get_the_title( $change['post_id'] ) ); ?></title>
-		<?php $link = get_edit_post_link( $change['post_id'], 'raw' ) ?: get_permalink( $change['post_id'] ); ?>
+			<?php
+			$edit_link = get_edit_post_link( $change['post_id'], 'raw' );
+			$link      = $edit_link ? $edit_link : get_permalink( $change['post_id'] );
+			?>
 		<link><?php echo esc_url( $link ); ?></link>
 		<guid isPermaLink="false"><?php echo esc_html( $change['post_id'] . '-' . $change['latest']->ID ); ?></guid>
 		<pubDate><?php echo esc_html( mysql2date( 'r', $change['latest']->post_modified_gmt, false ) ); ?></pubDate>
-		<?php
-		$authors = array_filter( array_map( function( int $user_id ) {
-			$user = get_userdata( $user_id );
-			if ( ! $user ) {
-				return false;
-			}
-			return $user->display_name;
-		}, $change['authors'] ) );
-		foreach ( $authors as $author ) :
-		?>
+			<?php
+			$authors = array_filter(
+				array_map(
+					function ( int $user_id ) {
+						$user = get_userdata( $user_id );
+						if ( ! $user ) {
+							return false;
+						}
+						return $user->display_name;
+					},
+					$change['authors']
+				)
+			);
+			foreach ( $authors as $author ) :
+				?>
 		<dc:creator><?php echo esc_html( $author ); ?></dc:creator>
-		<?php endforeach; ?>
-		<?php $rendered = str_replace( ']]>', ']]]]><![CDATA[>', $change['rendered'] ); ?>
+			<?php endforeach; ?>
+			<?php $rendered = str_replace( ']]>', ']]]]><![CDATA[>', $change['rendered'] ); ?>
 		<description><![CDATA[
 			<table class="diff">
-				<?php echo $rendered; ?>
+				<?php
+				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $rendered contains safe HTML from WP_Text_Diff_Renderer_Table.
+				echo $rendered;
+				?>
 			</table>
 		]]></description>
 	</item>
@@ -1456,6 +1513,6 @@ add_action( 'add_option_revisions_digest_rss_enabled', __NAMESPACE__ . '\flush_r
 /**
  * Flush rewrite rules.
  */
-function flush_rewrite_rules_on_setting_change() : void {
+function flush_rewrite_rules_on_setting_change(): void {
 	flush_rewrite_rules();
 }

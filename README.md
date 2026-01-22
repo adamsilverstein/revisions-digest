@@ -79,5 +79,63 @@ The class provides intelligent descriptions for changes:
 
 ## Minimum Requirements ##
 
-**PHP:** 7.0  
+**PHP:** 7.1  
 **WordPress:** 4.8  
+
+## Development ##
+
+### Installation
+
+Install PHP dependencies:
+
+```bash
+composer install
+```
+
+Install JavaScript/CSS development dependencies:
+
+```bash
+npm install
+```
+
+### Linting
+
+This project uses WordPress coding standards for both PHP and JavaScript/CSS.
+
+**PHP Linting:**
+
+```bash
+# Check for issues
+composer lint
+
+# Auto-fix issues
+composer lint:fix
+```
+
+**JavaScript/CSS Linting:**
+
+```bash
+# Check for issues
+npm run lint
+
+# Auto-fix issues
+npm run lint:fix
+```
+
+### Pre-commit Hooks
+
+This project uses [husky](https://typicode.github.io/husky/) and [lint-staged](https://github.com/lint-staged/lint-staged) to automatically run linters on staged files before each commit. After running `npm install`, the pre-commit hook will be installed automatically.
+
+### Running Tests
+
+First, set up the WordPress test suite:
+
+```bash
+bin/install-wp-tests.sh <db-name> <db-user> <db-pass> [db-host] [wp-version]
+```
+
+Then run tests:
+
+```bash
+./vendor/bin/phpunit
+```

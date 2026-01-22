@@ -11,6 +11,7 @@ Revisions Digest is a WordPress plugin that generates digests of content changes
 ### Install Dependencies
 ```bash
 composer install
+npm install
 ```
 
 ### Run Tests
@@ -29,14 +30,18 @@ Run a single test file:
 ./vendor/bin/phpunit tests/test-get-posts.php
 ```
 
-### Linting (PHPCS)
+### Linting
+
+**PHP (PHPCS):**
 ```bash
-./vendor/bin/phpcs
+composer lint        # Check for issues
+composer lint:fix    # Auto-fix issues
 ```
 
-Fix auto-fixable issues:
+**JavaScript/CSS (ESLint/Stylelint):**
 ```bash
-./vendor/bin/phpcbf
+npm run lint         # Check for issues
+npm run lint:fix     # Auto-fix issues
 ```
 
 ## Architecture
@@ -63,11 +68,13 @@ The plugin is contained in a single file (`revisions-digest.php`) using the `Rev
 
 ## Coding Standards
 
-- Uses WordPress-VIP coding standard with WordPress-Docs
-- PHP 7.0+ with `declare(strict_types=1)`
+- Uses WordPress coding standard with WordPress-Docs
+- PHP 7.1+ with `declare(strict_types=1)`
 - Uses type hints for parameters and return types
 - Indentation: tabs (4 spaces width)
 - Text domain: `revisions-digest`
+- JavaScript follows @wordpress/eslint-plugin rules
+- CSS follows @wordpress/stylelint-config rules
 
 ## Testing
 

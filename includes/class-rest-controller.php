@@ -39,7 +39,7 @@ class REST_Controller extends WP_REST_Controller {
 	 *
 	 * @return void
 	 */
-	public function register_routes() : void {
+	public function register_routes(): void {
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base,
@@ -86,7 +86,7 @@ class REST_Controller extends WP_REST_Controller {
 	 * @param WP_REST_Request $request Full data about the request.
 	 * @return WP_REST_Response Response object.
 	 */
-	public function get_items( $request ) : WP_REST_Response {
+	public function get_items( $request ): WP_REST_Response {
 		$period   = $request->get_param( 'period' );
 		$group_by = $request->get_param( 'group_by' );
 
@@ -96,17 +96,22 @@ class REST_Controller extends WP_REST_Controller {
 		$response_data = [];
 
 		foreach ( $changes as $change ) {
-			$authors = array_filter( array_map( function ( int $user_id ) {
-				$user = get_userdata( $user_id );
-				if ( ! $user ) {
-					return false;
-				}
+			$authors = array_filter(
+				array_map(
+					function ( int $user_id ) {
+						$user = get_userdata( $user_id );
+						if ( ! $user ) {
+								return false;
+						}
 
-				return [
-					'id'           => $user_id,
-					'display_name' => $user->display_name,
-				];
-			}, $change['authors'] ) );
+						return [
+							'id'           => $user_id,
+							'display_name' => $user->display_name,
+						];
+					},
+					$change['authors']
+				)
+			);
 
 			$response_data[] = [
 				'post_id'    => $change['post_id'],
@@ -134,7 +139,7 @@ class REST_Controller extends WP_REST_Controller {
 	 *
 	 * @return array Collection parameters.
 	 */
-	public function get_collection_params() : array {
+	public function get_collection_params(): array {
 		return [
 			'period'   => [
 				'description'       => __( 'Time period for the digest.', 'revisions-digest' ),

@@ -1,6 +1,8 @@
 <?php
 /**
  * Demonstration of the key issue requirements
+ *
+ * @package revisions-digest
  */
 
 use RevisionsDigest\Digest;

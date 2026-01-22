@@ -1,43 +1,52 @@
 <?xml version="1.0"?>
 <ruleset name="Revisions Digest">
 
-	<config name="installed_paths" value="../../slevomat/coding-standard,../../wp-coding-standards/wpcs,../../wimg/php-compatibility" />
-	<config name="testVersion" value="7.0-"/>
+	<description>WordPress Coding Standards for Revisions Digest plugin.</description>
+
+	<!-- What to scan -->
+	<file>.</file>
 
 	<exclude-pattern>*/node_modules/*</exclude-pattern>
 	<exclude-pattern>*/tests/*</exclude-pattern>
 	<exclude-pattern>*/vendor/*</exclude-pattern>
-	<exclude-pattern>Gruntfile.js</exclude-pattern>
 
-	<rule ref="WordPress-VIP"/>
+	<!-- How to scan -->
+	<arg value="sp"/>
+	<arg name="colors"/>
+	<arg name="basepath" value="."/>
+	<arg name="parallel" value="8"/>
+	<arg name="extensions" value="php"/>
+
+	<!-- PHP Compatibility - require 7.1+ for void return types and nullable types -->
+	<config name="testVersion" value="7.1-"/>
+	<rule ref="PHPCompatibilityWP"/>
+
+	<!-- WordPress Coding Standards -->
+	<rule ref="WordPress">
+		<!-- Allow short array syntax -->
+		<exclude name="Universal.Arrays.DisallowShortArraySyntax"/>
+	</rule>
+
+	<!-- Allow unused parameters in callbacks (WordPress uses fixed callback signatures) -->
+	<rule ref="Generic.CodeAnalysis.UnusedFunctionParameter">
+		<severity>0</severity>
+	</rule>
 
 	<rule ref="WordPress.WP.I18n">
 		<properties>
-			<property name="text_domain" type="array" value="revisions-digest"/>
+			<property name="text_domain" type="array">
+				<element value="revisions-digest"/>
+			</property>
 		</properties>
 	</rule>
 
 	<rule ref="WordPress.WP.DeprecatedFunctions">
 		<properties>
-			<property name="minimum_supported_version" value="4.8"/>
+			<property name="minimum_wp_version" value="4.8"/>
 		</properties>
 	</rule>
 
-	<rule ref="SlevomatCodingStandard.TypeHints.DeclareStrictTypes">
-		<properties>
-			<property name="newlinesCountBetweenOpenTagAndDeclare" type="string" value="1"/>
-			<property name="spacesCountAroundEqualsSign" type="string" value="0"/>
-		</properties>
-	</rule>
-	<rule ref="SlevomatCodingStandard.Classes.UnusedPrivateElements"/>
-	<rule ref="SlevomatCodingStandard.Namespaces.UseFromSameNamespace"/>
-	<rule ref="SlevomatCodingStandard.Exceptions.DeadCatch"/>
-	<rule ref="SlevomatCodingStandard.ControlStructures.LanguageConstructWithParentheses"/>
-	<rule ref="SlevomatCodingStandard.TypeHints.LongTypeHints"/>
-	<rule ref="SlevomatCodingStandard.Commenting.InlineDocCommentDeclaration"/>
-
-	<rule ref="WordPress-Docs" />
-
-	<rule ref="PHPCompatibility"/>
+	<!-- WordPress Documentation Standards -->
+	<rule ref="WordPress-Docs"/>
 
 </ruleset>
