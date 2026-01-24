@@ -77,12 +77,12 @@ The class provides intelligent descriptions for changes:
 - **Backward compatibility**: all existing functions continue to work unchanged
 - **Clean API**: object-oriented interface with sensible defaults
 
-## Minimum Requirements ##
+## Minimum Requirements
 
 **PHP:** 7.1  
 **WordPress:** 4.8  
 
-## Development ##
+## Development
 
 ### Installation
 

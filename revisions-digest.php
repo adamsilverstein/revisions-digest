@@ -413,7 +413,7 @@ function get_updated_posts( int $timeframe ): array {
  * @return WP_Post[] Array of post revisions.
  */
 function get_post_revisions( int $post_id, int $timeframe ): array {
-	$earliest      = gmdate( 'Y-m-d H: i: s', $timeframe );
+	$earliest      = gmdate( 'Y-m-d H:i:s', $timeframe );
 	$revisions     = wp_get_post_revisions( $post_id );
 	$use_revisions = [];
 
