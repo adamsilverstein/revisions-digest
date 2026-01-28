@@ -28,7 +28,7 @@ parameters:
 			path: revisions-digest.php
 
 		# The verify_subscription_ownership function uses wp_send_json_error() which never returns,
-		# so the null return type is technically never reached, but we keep it for documentation.
+		# so the nullable return type (?array) technically never returns null, but we keep it for documentation.
 		-
 			identifier: return.unusedType
 			message: '#Function RevisionsDigest\\verify_subscription_ownership\(\) never returns null#'
