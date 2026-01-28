@@ -23,7 +23,9 @@ parameters:
 
 		# wp_send_json_error() is marked as @return never in WordPress stubs, causing PHPStan to flag
 		# code after conditional error returns as unreachable. This is a common WordPress AJAX pattern.
-		- identifier: deadCode.unreachable
+		-
+			identifier: deadCode.unreachable
+			path: revisions-digest.php
 
 		# The verify_subscription_ownership function uses wp_send_json_error() which never returns,
 		# so the null return type is technically never reached, but we keep it for documentation.
