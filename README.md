@@ -84,6 +84,10 @@ The class provides intelligent descriptions for changes:
 
 ## Development
 
+### Requirements
+
+Development tooling (PHPStan, PHPCS, PHPUnit) requires **PHP 7.4+**. The runtime requirement remains PHP 7.1 for production use.
+
 ### Installation
 
 Install PHP dependencies:
@@ -120,6 +124,15 @@ npm run lint
 
 # Auto-fix issues
 npm run lint:fix
+```
+
+### Static Analysis
+
+This project uses [PHPStan](https://phpstan.org/) for static analysis at level 5.
+
+```bash
+# Run PHPStan
+composer phpstan
 ```
 
 ### Pre-commit Hooks

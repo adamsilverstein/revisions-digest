@@ -33,6 +33,25 @@ jobs:
       - name: Run PHPCS
         run: composer lint
 
+  phpstan:
+    name: PHPStan Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: Run PHPStan
+        run: composer phpstan
+
   lint-js-css:
     name: JavaScript & CSS Coding Standards
     runs-on: ubuntu-latest
