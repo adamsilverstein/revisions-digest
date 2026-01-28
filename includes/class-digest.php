@@ -87,7 +87,7 @@ class Digest {
 	 *     }
 	 * }
 	 */
-	public function get_changes() : array {
+	public function get_changes(): array {
 		$timeframe = $this->get_timeframe();
 		$modified  = $this->get_updated_posts( $timeframe );
 		$changes   = [];
@@ -107,11 +107,13 @@ class Digest {
 			$bounds  = $this->get_bound_revisions( $revisions );
 			$diff    = $this->get_diff( $bounds['latest'], $bounds['earliest'] );
 
-			$renderer = new WP_Text_Diff_Renderer_Table( [
-				'show_split_view'        => false,
-				'leading_context_lines'  => 1,
-				'trailing_context_lines' => 1,
-			] );
+			$renderer = new WP_Text_Diff_Renderer_Table(
+				[
+					'show_split_view'        => false,
+					'leading_context_lines'  => 1,
+					'trailing_context_lines' => 1,
+				]
+			);
 			$rendered = $this->render_diff( $diff, $renderer );
 
 			$data = [
@@ -134,7 +136,7 @@ class Digest {
 	 *
 	 * @return array Grouped changes with descriptions.
 	 */
-	public function get_grouped_changes() : array {
+	public function get_grouped_changes(): array {
 		$changes = $this->get_changes();
 		return $this->add_intelligent_descriptions( $changes );
 	}
@@ -144,7 +146,7 @@ class Digest {
 	 *
 	 * @return int Timestamp.
 	 */
-	private function get_timeframe() : int {
+	private function get_timeframe(): int {
 		if ( null !== $this->custom_timeframe ) {
 			return $this->custom_timeframe;
 		}
@@ -166,19 +168,21 @@ class Digest {
 	 * @param int $timeframe Fetch posts which have been modified since this timestamp.
 	 * @return int[] Array of post IDs.
 	 */
-	private function get_updated_posts( int $timeframe ) : array {
-		$earliest = date( 'Y-m-d H:i:s', $timeframe );
+	private function get_updated_posts( int $timeframe ): array {
+		$earliest = gmdate( 'Y-m-d H:i:s', $timeframe );
 
 		// Fetch IDs of all posts that have been modified within the time period.
-		$modified = new WP_Query( [
-			'fields'      => 'ids',
-			'post_type'   => 'page', // Just Pages for now.
-			'post_status' => 'publish',
-			'date_query'  => [
-				'after'  => $earliest,
-				'column' => 'post_modified',
-			],
-		] );
+		$modified = new WP_Query(
+			[
+				'fields'      => 'ids',
+				'post_type'   => 'page', // Just Pages for now.
+				'post_status' => 'publish',
+				'date_query'  => [
+					'after'  => $earliest,
+					'column' => 'post_modified',
+				],
+			]
+		);
 
 		return $modified->posts;
 	}
@@ -190,8 +194,8 @@ class Digest {
 	 * @param int $timeframe Fetch revisions since this timestamp.
 	 * @return WP_Post[] Array of post revisions.
 	 */
-	private function get_post_revisions( int $post_id, int $timeframe ) : array {
-		$earliest      = date( 'Y-m-d H:i:s', $timeframe );
+	private function get_post_revisions( int $post_id, int $timeframe ): array {
+		$earliest      = gmdate( 'Y-m-d H:i:s', $timeframe );
 		$revisions     = wp_get_post_revisions( $post_id );
 		$use_revisions = [];
 
@@ -223,7 +227,7 @@ class Digest {
 	 *     @type WP_Post $earliest The earliest revision.
 	 * }
 	 */
-	private function get_bound_revisions( array $revisions ) : array {
+	private function get_bound_revisions( array $revisions ): array {
 		$latest   = reset( $revisions );
 		$earliest = end( $revisions );
 
@@ -237,7 +241,7 @@ class Digest {
 	 * @param WP_Post $earliest The earliest revision.
 	 * @return Text_Diff The diff object.
 	 */
-	private function get_diff( WP_Post $latest, WP_Post $earliest ) : Text_Diff {
+	private function get_diff( WP_Post $latest, WP_Post $earliest ): Text_Diff {
 		if ( ! class_exists( 'Text_Diff', false ) ) {
 			require_once ABSPATH . WPINC . '/wp-diff.php';
 		}
@@ -257,7 +261,7 @@ class Digest {
 	 * @param Text_Diff_Renderer $renderer  The diff renderer.
 	 * @return string The rendered diff.
 	 */
-	private function render_diff( Text_Diff $text_diff, Text_Diff_Renderer $renderer ) : string {
+	private function render_diff( Text_Diff $text_diff, Text_Diff_Renderer $renderer ): string {
 		return $renderer->render( $text_diff );
 	}
 
@@ -267,9 +271,9 @@ class Digest {
 	 * @param array $changes Array of changes.
 	 * @return array Grouped changes.
 	 */
-	private function group_changes( array $changes ) : array {
+	private function group_changes( array $changes ): array {
 		if ( self::GROUP_BY_POST === $this->group_by ) {
-			// Default grouping - no change needed
+			// Default grouping - no change needed.
 			return $changes;
 		}
 
@@ -292,23 +296,23 @@ class Digest {
 	 * @param array $change Change data.
 	 * @return string Grouping key.
 	 */
-	private function get_grouping_key( array $change ) : string {
+	private function get_grouping_key( array $change ): string {
 		switch ( $this->group_by ) {
 			case self::GROUP_BY_DATE:
-				return date( 'Y-m-d', strtotime( $change['latest']->post_modified ) );
+				return gmdate( 'Y-m-d', strtotime( $change['latest']->post_modified ) );
 
 			case self::GROUP_BY_USER:
-				// Group by the first author (primary contributor)
+				// Group by the first author (primary contributor).
 				return (string) $change['authors'][0];
 
 			case self::GROUP_BY_TAXONOMY:
-				// Get all taxonomies for the post
-				$terms = [];
+				// Get all taxonomies for the post.
+				$terms     = [];
 				$post_type = get_post_type( $change['post_id'] );
-				
+
 				if ( $post_type ) {
 					$taxonomies = get_object_taxonomies( $post_type );
-					
+
 					foreach ( $taxonomies as $taxonomy ) {
 						$post_terms = get_the_terms( $change['post_id'], $taxonomy );
 						if ( ! empty( $post_terms ) && ! is_wp_error( $post_terms ) ) {
@@ -318,7 +322,7 @@ class Digest {
 						}
 					}
 				}
-				
+
 				return ! empty( $terms ) ? implode( ', ', $terms ) : 'uncategorized';
 
 			case self::GROUP_BY_POST:
@@ -333,18 +337,18 @@ class Digest {
 	 * @param array $changes Array of changes.
 	 * @return array Changes with descriptions.
 	 */
-	private function add_intelligent_descriptions( array $changes ) : array {
+	private function add_intelligent_descriptions( array $changes ): array {
 		$described = [];
 
 		foreach ( $changes as $key => $change_group ) {
 			if ( is_array( $change_group ) && isset( $change_group[0] ) ) {
-				// This is a grouped set of changes
+				// This is a grouped set of changes.
 				$described[ $key ] = [
 					'changes'     => $change_group,
 					'description' => $this->generate_group_description( $change_group ),
 				];
 			} else {
-				// This is a single change
+				// This is a single change.
 				$described[ $key ] = [
 					'changes'     => [ $change_group ],
 					'description' => $this->generate_single_description( $change_group ),
@@ -361,7 +365,7 @@ class Digest {
 	 * @param array $changes Array of changes.
 	 * @return string Description.
 	 */
-	private function generate_group_description( array $changes ) : string {
+	private function generate_group_description( array $changes ): string {
 		$count   = count( $changes );
 		$authors = [];
 
@@ -406,7 +410,7 @@ class Digest {
 	 * @param array $change Change data.
 	 * @return string Description.
 	 */
-	private function generate_single_description( array $change ) : string {
+	private function generate_single_description( array $change ): string {
 		$authors = [];
 		foreach ( $change['authors'] as $author_id ) {
 			$user = get_userdata( $author_id );
@@ -432,7 +436,7 @@ class Digest {
 	 *
 	 * @return string Period description.
 	 */
-	private function get_period_description() : string {
+	private function get_period_description(): string {
 		switch ( $this->period ) {
 			case self::PERIOD_DAY:
 				return 'in the last day';
@@ -450,7 +454,7 @@ class Digest {
 	 * @param string $modified_time Modified time.
 	 * @return string Time description.
 	 */
-	private function get_time_description( string $modified_time ) : string {
+	private function get_time_description( string $modified_time ): string {
 		$time_diff = time() - strtotime( $modified_time );
 
 		if ( $time_diff < DAY_IN_SECONDS ) {
@@ -472,8 +476,8 @@ class Digest {
 	 * @param Text_Diff $diff Diff object.
 	 * @return string Size description.
 	 */
-	private function get_change_size_description( Text_Diff $diff ) : string {
-		$edits = $diff->getEdits();
+	private function get_change_size_description( Text_Diff $diff ): string {
+		$edits         = $diff->getEdits();
 		$total_changes = 0;
 
 		foreach ( $edits as $edit ) {
