@@ -122,6 +122,15 @@ npm run lint
 npm run lint:fix
 ```
 
+### Static Analysis
+
+This project uses [PHPStan](https://phpstan.org/) for static analysis at level 5.
+
+```bash
+# Run PHPStan
+composer phpstan
+```
+
 ### Pre-commit Hooks
 
 This project uses [husky](https://typicode.github.io/husky/) and [lint-staged](https://github.com/lint-staged/lint-staged) to automatically run linters on staged files before each commit. After running `npm install`, the pre-commit hook will be installed automatically.

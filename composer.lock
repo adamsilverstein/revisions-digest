@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "2444dd3717dabeee57d444f3127e4129",
+    "content-hash": "c415f37f7b9ad76c8b8b8230e876f2c1",
     "packages": [
         {
             "name": "composer/installers",
@@ -487,6 +487,57 @@
             "time": "2022-02-21T01:04:05+00:00"
         },
         {
+            "name": "php-stubs/wordpress-stubs",
+            "version": "v6.9.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/php-stubs/wordpress-stubs.git",
+                "reference": "5171cb6650e6c583a96943fd6ea0dfa3e1089a8a"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/php-stubs/wordpress-stubs/zipball/5171cb6650e6c583a96943fd6ea0dfa3e1089a8a",
+                "reference": "5171cb6650e6c583a96943fd6ea0dfa3e1089a8a",
+                "shasum": ""
+            },
+            "conflict": {
+                "phpdocumentor/reflection-docblock": "5.6.1"
+            },
+            "require-dev": {
+                "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+                "nikic/php-parser": "^5.5",
+                "php": "^7.4 || ^8.0",
+                "php-stubs/generator": "^0.8.3",
+                "phpdocumentor/reflection-docblock": "^5.4.1",
+                "phpstan/phpstan": "^2.1",
+                "phpunit/phpunit": "^9.5",
+                "szepeviktor/phpcs-psr-12-neutron-hybrid-ruleset": "^1.1.1",
+                "wp-coding-standards/wpcs": "3.1.0 as 2.3.0"
+            },
+            "suggest": {
+                "paragonie/sodium_compat": "Pure PHP implementation of libsodium",
+                "symfony/polyfill-php80": "Symfony polyfill backporting some PHP 8.0+ features to lower PHP versions",
+                "szepeviktor/phpstan-wordpress": "WordPress extensions for PHPStan"
+            },
+            "type": "library",
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "WordPress function and class declaration stubs for static analysis.",
+            "homepage": "https://github.com/php-stubs/wordpress-stubs",
+            "keywords": [
+                "PHPStan",
+                "static analysis",
+                "wordpress"
+            ],
+            "support": {
+                "issues": "https://github.com/php-stubs/wordpress-stubs/issues",
+                "source": "https://github.com/php-stubs/wordpress-stubs/tree/v6.9.0"
+            },
+            "time": "2025-12-03T23:06:24+00:00"
+        },
+        {
             "name": "phpcompatibility/php-compatibility",
             "version": "9.3.5",
             "source": {
@@ -875,6 +926,59 @@
             "time": "2025-12-08T14:27:58+00:00"
         },
         {
+            "name": "phpstan/phpstan",
+            "version": "2.1.37",
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/phpstan/phpstan/zipball/28cd424c5ea984128c95cfa7ea658808e8954e49",
+                "reference": "28cd424c5ea984128c95cfa7ea658808e8954e49",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^7.4|^8.0"
+            },
+            "conflict": {
+                "phpstan/phpstan-shim": "*"
+            },
+            "bin": [
+                "phpstan",
+                "phpstan.phar"
+            ],
+            "type": "library",
+            "autoload": {
+                "files": [
+                    "bootstrap.php"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "PHPStan - PHP Static Analysis Tool",
+            "keywords": [
+                "dev",
+                "static analysis"
+            ],
+            "support": {
+                "docs": "https://phpstan.org/user-guide/getting-started",
+                "forum": "https://github.com/phpstan/phpstan/discussions",
+                "issues": "https://github.com/phpstan/phpstan/issues",
+                "security": "https://github.com/phpstan/phpstan/security/policy",
+                "source": "https://github.com/phpstan/phpstan-src"
+            },
+            "funding": [
+                {
+                    "url": "https://github.com/ondrejmirtes",
+                    "type": "github"
+                },
+                {
+                    "url": "https://github.com/phpstan",
+                    "type": "github"
+                }
+            ],
+            "time": "2026-01-24T08:21:55+00:00"
+        },
+        {
             "name": "phpunit/php-code-coverage",
             "version": "10.1.16",
             "source": {
@@ -1197,16 +1301,16 @@
         },
         {
             "name": "phpunit/phpunit",
-            "version": "10.5.60",
+            "version": "10.5.63",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sebastianbergmann/phpunit.git",
-                "reference": "f2e26f52f80ef77832e359205f216eeac00e320c"
+                "reference": "33198268dad71e926626b618f3ec3966661e4d90"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/f2e26f52f80ef77832e359205f216eeac00e320c",
-                "reference": "f2e26f52f80ef77832e359205f216eeac00e320c",
+                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/33198268dad71e926626b618f3ec3966661e4d90",
+                "reference": "33198268dad71e926626b618f3ec3966661e4d90",
                 "shasum": ""
             },
             "require": {
@@ -1227,7 +1331,7 @@
                 "phpunit/php-timer": "^6.0.0",
                 "sebastian/cli-parser": "^2.0.1",
                 "sebastian/code-unit": "^2.0.0",
-                "sebastian/comparator": "^5.0.4",
+                "sebastian/comparator": "^5.0.5",
                 "sebastian/diff": "^5.1.1",
                 "sebastian/environment": "^6.1.0",
                 "sebastian/exporter": "^5.1.4",
@@ -1278,7 +1382,7 @@
             "support": {
                 "issues": "https://github.com/sebastianbergmann/phpunit/issues",
                 "security": "https://github.com/sebastianbergmann/phpunit/security/policy",
-                "source": "https://github.com/sebastianbergmann/phpunit/tree/10.5.60"
+                "source": "https://github.com/sebastianbergmann/phpunit/tree/10.5.63"
             },
             "funding": [
                 {
@@ -1302,7 +1406,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2025-12-06T07:50:42+00:00"
+            "time": "2026-01-27T05:48:37+00:00"
         },
         {
             "name": "sebastian/cli-parser",
@@ -1474,16 +1578,16 @@
         },
         {
             "name": "sebastian/comparator",
-            "version": "5.0.4",
+            "version": "5.0.5",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sebastianbergmann/comparator.git",
-                "reference": "e8e53097718d2b53cfb2aa859b06a41abf58c62e"
+                "reference": "55dfef806eb7dfeb6e7a6935601fef866f8ca48d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sebastianbergmann/comparator/zipball/e8e53097718d2b53cfb2aa859b06a41abf58c62e",
-                "reference": "e8e53097718d2b53cfb2aa859b06a41abf58c62e",
+                "url": "https://api.github.com/repos/sebastianbergmann/comparator/zipball/55dfef806eb7dfeb6e7a6935601fef866f8ca48d",
+                "reference": "55dfef806eb7dfeb6e7a6935601fef866f8ca48d",
                 "shasum": ""
             },
             "require": {
@@ -1539,7 +1643,7 @@
             "support": {
                 "issues": "https://github.com/sebastianbergmann/comparator/issues",
                 "security": "https://github.com/sebastianbergmann/comparator/security/policy",
-                "source": "https://github.com/sebastianbergmann/comparator/tree/5.0.4"
+                "source": "https://github.com/sebastianbergmann/comparator/tree/5.0.5"
             },
             "funding": [
                 {
@@ -1559,7 +1663,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2025-09-07T05:25:07+00:00"
+            "time": "2026-01-24T09:25:16+00:00"
         },
         {
             "name": "sebastian/complexity",
@@ -2459,7 +2563,7 @@
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
-        "php": ">=7.0"
+        "php": ">=7.1"
     },
     "platform-dev": {},
     "plugin-api-version": "2.9.0"

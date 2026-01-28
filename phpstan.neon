@@ -1,0 +1,28 @@
+parameters:
+	level: 5
+	paths:
+		- revisions-digest.php
+		- includes
+	scanFiles:
+		- vendor/php-stubs/wordpress-stubs/wordpress-stubs.php
+	bootstrapFiles:
+		- phpstan-bootstrap.php
+	ignoreErrors:
+		# WordPress core file includes - these files exist in WordPress but not during static analysis
+		- identifier: requireOnce.fileNotFound
+
+		# Text_Diff class has different constructor signature in WordPress vs the stubs
+		-
+			identifier: argument.type
+			message: '#Parameter \#1 \$engine of class Text_Diff constructor expects string, list<string> given#'
+
+		# Text_Diff::getEdits() exists in WordPress's version but not in the stubs
+		-
+			identifier: method.notFound
+			message: '#Call to an undefined method Text_Diff::getEdits\(\)#'
+
+		# wp_send_json_error() never returns, so the nullable return type is technically unreachable
+		# but is kept for documentation purposes
+		-
+			identifier: return.unusedType
+			message: '#Function RevisionsDigest\\verify_subscription_ownership\(\) never returns null#'
