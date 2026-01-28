@@ -21,8 +21,12 @@ parameters:
 			identifier: method.notFound
 			message: '#Call to an undefined method Text_Diff::getEdits\(\)#'
 
-		# wp_send_json_error() never returns, so the nullable return type is technically unreachable
-		# but is kept for documentation purposes
+		# wp_send_json_error() is marked as @return never in WordPress stubs, causing PHPStan to flag
+		# code after conditional error returns as unreachable. This is a common WordPress AJAX pattern.
+		- identifier: deadCode.unreachable
+
+		# The verify_subscription_ownership function uses wp_send_json_error() which never returns,
+		# so the null return type is technically never reached, but we keep it for documentation.
 		-
 			identifier: return.unusedType
 			message: '#Function RevisionsDigest\\verify_subscription_ownership\(\) never returns null#'
