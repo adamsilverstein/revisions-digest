@@ -84,6 +84,10 @@ The class provides intelligent descriptions for changes:
 
 ## Development
 
+### Requirements
+
+Development tooling (PHPStan, PHPCS, PHPUnit) requires **PHP 7.4+**. The runtime requirement remains PHP 7.1 for production use.
+
 ### Installation
 
 Install PHP dependencies:
