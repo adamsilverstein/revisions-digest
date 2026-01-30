@@ -1,15 +1,12 @@
 <phpunit
-	bootstrap="tests/includes/bootstrap.php"
+	bootstrap="tests/bootstrap.php"
 	backupGlobals="false"
 	colors="true"
-	convertErrorsToExceptions="true"
-	convertNoticesToExceptions="true"
-	convertWarningsToExceptions="true"
 	beStrictAboutTestsThatDoNotTestAnything="true"
 	beStrictAboutOutputDuringTests="true"
 	>
 	<testsuites>
-		<testsuite>
+		<testsuite name="default">
 			<directory prefix="test-" suffix=".php">./tests/</directory>
 		</testsuite>
 	</testsuites>
