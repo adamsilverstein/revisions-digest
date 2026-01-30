@@ -24,7 +24,7 @@
 		"php-stubs/wordpress-stubs": "^6.7",
 		"phpcompatibility/phpcompatibility-wp": "^2.1",
 		"phpstan/phpstan": "^2.0",
-		"phpunit/phpunit": "^9.0 || ^10.0",
+		"phpunit/phpunit": "^9.0",
 		"wp-coding-standards/wpcs": "^3.1",
 		"yoast/phpunit-polyfills": "^2.0"
 	},
