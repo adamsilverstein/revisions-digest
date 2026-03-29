@@ -57,11 +57,13 @@ class Test_Get_Posts extends TestCase {
 		};
 		add_filter( 'revisions_digest_post_types', $filter );
 
-		$filtered_result = \RevisionsDigest\get_updated_posts( $week_ago );
-		$this->assertContains( $page->ID, $filtered_result );
-		$this->assertContains( $post->ID, $filtered_result );
-
-		remove_filter( 'revisions_digest_post_types', $filter );
+		try {
+			$filtered_result = \RevisionsDigest\get_updated_posts( $week_ago );
+			$this->assertContains( $page->ID, $filtered_result );
+			$this->assertContains( $post->ID, $filtered_result );
+		} finally {
+			remove_filter( 'revisions_digest_post_types', $filter );
+		}
 	}
 
 }
