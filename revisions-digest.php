@@ -75,7 +75,9 @@ add_action(
 	function (): void {
 		global $wpdb;
 
-		// Delete all revisions_digest transients.
+		// Delete all revisions_digest transients. Direct query required
+		// because WordPress has no API to delete transients by prefix.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			"DELETE FROM {$wpdb->options}
 			WHERE option_name LIKE '_transient_revisions_digest_%'
