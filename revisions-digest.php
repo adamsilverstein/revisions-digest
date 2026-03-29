@@ -198,9 +198,26 @@ function render_widget_content( array $changes ): void {
 				esc_html( $changes_by )
 			);
 
-			echo '<table class="diff">';
-			echo $change['rendered']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Output is pre-escaped by WP_Text_Diff_Renderer_Table.
-			echo '</table>';
+			if ( ! empty( $change['title_rendered'] ) ) {
+				echo '<h4>' . esc_html__( 'Title', 'revisions-digest' ) . '</h4>';
+				echo '<table class="diff">';
+				echo $change['title_rendered']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				echo '</table>';
+			}
+
+			if ( ! empty( $change['excerpt_rendered'] ) ) {
+				echo '<h4>' . esc_html__( 'Excerpt', 'revisions-digest' ) . '</h4>';
+				echo '<table class="diff">';
+				echo $change['excerpt_rendered']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				echo '</table>';
+			}
+
+			if ( ! empty( $change['rendered'] ) ) {
+				echo '<h4>' . esc_html__( 'Content', 'revisions-digest' ) . '</h4>';
+				echo '<table class="diff">';
+				echo $change['rendered']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				echo '</table>';
+			}
 
 			echo '</div>';
 		}
@@ -921,9 +938,26 @@ function get_email_content( array $changes ): string {
 					?>
 				</p>
 
-				<table class="diff">
-					<?php echo $change['rendered']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-				</table>
+				<?php if ( ! empty( $change['title_rendered'] ) ) : ?>
+					<h3><?php esc_html_e( 'Title', 'revisions-digest' ); ?></h3>
+					<table class="diff">
+						<?php echo $change['title_rendered']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					</table>
+				<?php endif; ?>
+
+				<?php if ( ! empty( $change['excerpt_rendered'] ) ) : ?>
+					<h3><?php esc_html_e( 'Excerpt', 'revisions-digest' ); ?></h3>
+					<table class="diff">
+						<?php echo $change['excerpt_rendered']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					</table>
+				<?php endif; ?>
+
+				<?php if ( ! empty( $change['rendered'] ) ) : ?>
+					<h3><?php esc_html_e( 'Content', 'revisions-digest' ); ?></h3>
+					<table class="diff">
+						<?php echo $change['rendered']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					</table>
+				<?php endif; ?>
 			</div>
 		<?php endforeach; ?>
 	<?php endif; ?>

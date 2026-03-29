@@ -116,13 +116,20 @@ class Digest {
 			);
 			$rendered = $this->render_diff( $diff, $renderer );
 
+			$title_diff    = $this->get_field_diff( $bounds['latest'], $bounds['earliest'], 'post_title' );
+			$excerpt_diff  = $this->get_field_diff( $bounds['latest'], $bounds['earliest'], 'post_excerpt' );
+			$title_rendered  = $title_diff ? $this->render_diff( $title_diff, $renderer ) : '';
+			$excerpt_rendered = $excerpt_diff ? $this->render_diff( $excerpt_diff, $renderer ) : '';
+
 			$data = [
-				'post_id'  => $modified_post_id,
-				'latest'   => $bounds['latest'],
-				'earliest' => $bounds['earliest'],
-				'diff'     => $diff,
-				'rendered' => $rendered,
-				'authors'  => $authors,
+				'post_id'          => $modified_post_id,
+				'latest'           => $bounds['latest'],
+				'earliest'         => $bounds['earliest'],
+				'diff'             => $diff,
+				'rendered'         => $rendered,
+				'title_rendered'   => $title_rendered,
+				'excerpt_rendered' => $excerpt_rendered,
+				'authors'          => $authors,
 			];
 
 			$changes[] = $data;
@@ -252,6 +259,25 @@ class Digest {
 		$right_lines  = explode( "\n", $right_string );
 
 		return new Text_Diff( $left_lines, $right_lines );
+	}
+
+	/**
+	 * Get diff for a specific post field, returning null if unchanged.
+	 *
+	 * @param WP_Post $latest   The latest revision.
+	 * @param WP_Post $earliest The earliest revision.
+	 * @param string  $field    The post field to diff (e.g. 'post_title', 'post_excerpt').
+	 * @return Text_Diff|null The diff object, or null if the field is unchanged.
+	 */
+	private function get_field_diff( WP_Post $latest, WP_Post $earliest, string $field ): ?Text_Diff {
+		$left  = normalize_whitespace( $earliest->$field );
+		$right = normalize_whitespace( $latest->$field );
+
+		if ( $left === $right ) {
+			return null;
+		}
+
+		return new Text_Diff( explode( "\n", $left ), explode( "\n", $right ) );
 	}
 
 	/**
