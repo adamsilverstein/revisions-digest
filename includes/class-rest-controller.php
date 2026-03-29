@@ -114,12 +114,14 @@ class REST_Controller extends WP_REST_Controller {
 			);
 
 			$response_data[] = [
-				'post_id'    => $change['post_id'],
-				'post_title' => get_the_title( $change['post_id'] ),
-				'post_url'   => get_permalink( $change['post_id'] ),
-				'edit_url'   => get_edit_post_link( $change['post_id'], 'raw' ),
-				'rendered'   => $change['rendered'],
-				'authors'    => array_values( $authors ),
+				'post_id'          => $change['post_id'],
+				'post_title'       => get_the_title( $change['post_id'] ),
+				'post_url'         => get_permalink( $change['post_id'] ),
+				'edit_url'         => get_edit_post_link( $change['post_id'], 'raw' ),
+				'rendered'         => $change['rendered'],
+				'title_rendered'   => $change['title_rendered'] ?? '',
+				'excerpt_rendered' => $change['excerpt_rendered'] ?? '',
+				'authors'          => array_values( $authors ),
 			];
 		}
 

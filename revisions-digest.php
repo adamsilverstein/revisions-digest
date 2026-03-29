@@ -16,7 +16,7 @@
  * Author URI:      https://johnblackbourn.com
  * Text Domain:     revisions-digest
  * Domain Path:     /languages
- * Requires PHP:    7.0
+ * Requires PHP:    7.1
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -198,9 +198,26 @@ function render_widget_content( array $changes ): void {
 				esc_html( $changes_by )
 			);
 
-			echo '<table class="diff">';
-			echo $change['rendered']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Output is pre-escaped by WP_Text_Diff_Renderer_Table.
-			echo '</table>';
+			if ( ! empty( $change['title_rendered'] ) ) {
+				echo '<h4>' . esc_html__( 'Title', 'revisions-digest' ) . '</h4>';
+				echo '<table class="diff">';
+				echo $change['title_rendered']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				echo '</table>';
+			}
+
+			if ( ! empty( $change['excerpt_rendered'] ) ) {
+				echo '<h4>' . esc_html__( 'Excerpt', 'revisions-digest' ) . '</h4>';
+				echo '<table class="diff">';
+				echo $change['excerpt_rendered']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				echo '</table>';
+			}
+
+			if ( ! empty( $change['rendered'] ) ) {
+				echo '<h4>' . esc_html__( 'Content', 'revisions-digest' ) . '</h4>';
+				echo '<table class="diff">';
+				echo $change['rendered']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				echo '</table>';
+			}
 
 			echo '</div>';
 		}
@@ -714,44 +731,13 @@ function get_timeframe_for_frequency( string $frequency ): string {
  * @return array Array of changes.
  */
 function get_digest_changes_for_timeframe( string $timeframe ): array {
-	$time     = strtotime( $timeframe );
-	$modified = get_updated_posts( $time );
-	$changes  = [];
-
-	foreach ( $modified as $modified_post_id ) {
-		$revisions = get_post_revisions( $modified_post_id, $time );
-		if ( empty( $revisions ) ) {
-			continue;
-		}
-
-		if ( ! class_exists( 'WP_Text_Diff_Renderer_Table', false ) ) {
-			require_once ABSPATH . WPINC . '/wp-diff.php';
-		}
-
-		$authors = array_unique( array_map( 'intval', wp_list_pluck( $revisions, 'post_author' ) ) );
-		$bounds  = get_bound_revisions( $revisions );
-		$diff    = get_diff( $bounds['latest'], $bounds['earliest'] );
-
-		$renderer = new WP_Text_Diff_Renderer_Table(
-			[
-				'show_split_view'        => false,
-				'leading_context_lines'  => 1,
-				'trailing_context_lines' => 1,
-			]
-		);
-		$rendered = render_diff( $diff, $renderer );
-
-		$changes[] = [
-			'post_id'  => $modified_post_id,
-			'latest'   => $bounds['latest'],
-			'earliest' => $bounds['earliest'],
-			'diff'     => $diff,
-			'rendered' => $rendered,
-			'authors'  => $authors,
-		];
+	$timestamp = strtotime( $timeframe );
+	if ( false === $timestamp ) {
+		return [];
 	}
 
-	return $changes;
+	$digest = new Digest( Digest::PERIOD_WEEK, Digest::GROUP_BY_POST, $timestamp );
+	return $digest->get_changes();
 }
 
 /**
@@ -921,9 +907,26 @@ function get_email_content( array $changes ): string {
 					?>
 				</p>
 
-				<table class="diff">
-					<?php echo $change['rendered']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-				</table>
+				<?php if ( ! empty( $change['title_rendered'] ) ) : ?>
+					<h3><?php esc_html_e( 'Title', 'revisions-digest' ); ?></h3>
+					<table class="diff">
+						<?php echo $change['title_rendered']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					</table>
+				<?php endif; ?>
+
+				<?php if ( ! empty( $change['excerpt_rendered'] ) ) : ?>
+					<h3><?php esc_html_e( 'Excerpt', 'revisions-digest' ); ?></h3>
+					<table class="diff">
+						<?php echo $change['excerpt_rendered']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					</table>
+				<?php endif; ?>
+
+				<?php if ( ! empty( $change['rendered'] ) ) : ?>
+					<h3><?php esc_html_e( 'Content', 'revisions-digest' ); ?></h3>
+					<table class="diff">
+						<?php echo $change['rendered']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					</table>
+				<?php endif; ?>
 			</div>
 		<?php endforeach; ?>
 	<?php endif; ?>
