@@ -95,10 +95,10 @@ class REST_Controller extends WP_REST_Controller {
 		$digest      = new Digest( $period, $group_by );
 		$all_changes = $digest->get_changes();
 
-		$total    = count( $all_changes );
-		$pages    = (int) ceil( $total / $per_page );
-		$offset   = ( $page - 1 ) * $per_page;
-		$changes  = array_slice( $all_changes, $offset, $per_page );
+		$total   = count( $all_changes );
+		$pages   = (int) ceil( $total / $per_page );
+		$offset  = ( $page - 1 ) * $per_page;
+		$changes = array_slice( $all_changes, $offset, $per_page );
 
 		$response_data = [];
 
