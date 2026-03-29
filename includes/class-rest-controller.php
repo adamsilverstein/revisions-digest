@@ -95,10 +95,26 @@ class REST_Controller extends WP_REST_Controller {
 		$digest      = new Digest( $period, $group_by );
 		$all_changes = $digest->get_changes();
 
-		$total   = count( $all_changes );
+		// Flatten grouped results into a flat list for pagination.
+		// Non-default group_by modes return associative arrays of arrays.
+		$flat_changes = [];
+		foreach ( $all_changes as $key => $value ) {
+			if ( isset( $value['post_id'] ) ) {
+				// Already a flat change item.
+				$flat_changes[] = $value;
+			} else {
+				// Grouped bucket — merge individual changes, tagging with group key.
+				foreach ( $value as $change ) {
+					$change['group'] = $key;
+					$flat_changes[]  = $change;
+				}
+			}
+		}
+
+		$total   = count( $flat_changes );
 		$pages   = (int) ceil( $total / $per_page );
 		$offset  = ( $page - 1 ) * $per_page;
-		$changes = array_slice( $all_changes, $offset, $per_page );
+		$changes = array_slice( $flat_changes, $offset, $per_page );
 
 		$response_data = [];
 
@@ -120,7 +136,7 @@ class REST_Controller extends WP_REST_Controller {
 				)
 			);
 
-			$response_data[] = [
+			$item = [
 				'post_id'          => $change['post_id'],
 				'post_title'       => get_the_title( $change['post_id'] ),
 				'post_url'         => get_permalink( $change['post_id'] ),
@@ -130,6 +146,12 @@ class REST_Controller extends WP_REST_Controller {
 				'excerpt_rendered' => $change['excerpt_rendered'] ?? '',
 				'authors'          => array_values( $authors ),
 			];
+
+			if ( isset( $change['group'] ) ) {
+				$item['group'] = $change['group'];
+			}
+
+			$response_data[] = $item;
 		}
 
 		$response = new WP_REST_Response(
