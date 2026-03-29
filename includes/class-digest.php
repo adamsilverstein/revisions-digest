@@ -99,10 +99,18 @@ class Digest {
 
 		// Strip non-serializable objects before caching. Text_Diff and
 		// WP_Post objects may not hydrate correctly from transients.
+		$strip = function ( array $change ): array {
+			unset( $change['diff'], $change['latest'], $change['earliest'] );
+			return $change;
+		};
+
 		$cacheable = array_map(
-			function ( array $change ): array {
-				unset( $change['diff'], $change['latest'], $change['earliest'] );
-				return $change;
+			function ( $item ) use ( $strip ) {
+				// Grouped results are nested arrays of changes.
+				if ( is_array( $item ) && isset( $item[0] ) && is_array( $item[0] ) ) {
+					return array_map( $strip, $item );
+				}
+				return $strip( $item );
 			},
 			$result
 		);
