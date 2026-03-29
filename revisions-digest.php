@@ -16,7 +16,7 @@
  * Author URI:      https://johnblackbourn.com
  * Text Domain:     revisions-digest
  * Domain Path:     /languages
- * Requires PHP:    7.0
+ * Requires PHP:    7.1
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -731,44 +731,13 @@ function get_timeframe_for_frequency( string $frequency ): string {
  * @return array Array of changes.
  */
 function get_digest_changes_for_timeframe( string $timeframe ): array {
-	$time     = strtotime( $timeframe );
-	$modified = get_updated_posts( $time );
-	$changes  = [];
-
-	foreach ( $modified as $modified_post_id ) {
-		$revisions = get_post_revisions( $modified_post_id, $time );
-		if ( empty( $revisions ) ) {
-			continue;
-		}
-
-		if ( ! class_exists( 'WP_Text_Diff_Renderer_Table', false ) ) {
-			require_once ABSPATH . WPINC . '/wp-diff.php';
-		}
-
-		$authors = array_unique( array_map( 'intval', wp_list_pluck( $revisions, 'post_author' ) ) );
-		$bounds  = get_bound_revisions( $revisions );
-		$diff    = get_diff( $bounds['latest'], $bounds['earliest'] );
-
-		$renderer = new WP_Text_Diff_Renderer_Table(
-			[
-				'show_split_view'        => false,
-				'leading_context_lines'  => 1,
-				'trailing_context_lines' => 1,
-			]
-		);
-		$rendered = render_diff( $diff, $renderer );
-
-		$changes[] = [
-			'post_id'  => $modified_post_id,
-			'latest'   => $bounds['latest'],
-			'earliest' => $bounds['earliest'],
-			'diff'     => $diff,
-			'rendered' => $rendered,
-			'authors'  => $authors,
-		];
+	$timestamp = strtotime( $timeframe );
+	if ( false === $timestamp ) {
+		return [];
 	}
 
-	return $changes;
+	$digest = new Digest( Digest::PERIOD_WEEK, Digest::GROUP_BY_POST, $timestamp );
+	return $digest->get_changes();
 }
 
 /**
