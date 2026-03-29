@@ -1,0 +1,28 @@
+# Directories
+.claude/
+.conductor/
+.cursor/
+.github/
+.husky/
+bin/
+examples/
+node_modules/
+tests/
+vendor/
+
+# Files
+.DS_Store
+.editorconfig
+.eslintrc.json
+.gitignore
+.stylelintrc.json
+.travis.yml
+CLAUDE.md
+composer.json
+composer.lock
+package.json
+package-lock.json
+phpcs.xml.dist
+phpstan-bootstrap.php
+phpstan.neon
+phpunit.xml.dist
