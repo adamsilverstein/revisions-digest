@@ -171,11 +171,18 @@ class Digest {
 	private function get_updated_posts( int $timeframe ): array {
 		$earliest = gmdate( 'Y-m-d H:i:s', $timeframe );
 
+		/**
+		 * Filters the post types included in the revisions digest.
+		 *
+		 * @param string[] $post_types Array of post type slugs. Default: array( 'page' ).
+		 */
+		$post_types = apply_filters( 'revisions_digest_post_types', [ 'page' ] );
+
 		// Fetch IDs of all posts that have been modified within the time period.
 		$modified = new WP_Query(
 			[
 				'fields'      => 'ids',
-				'post_type'   => 'page', // Just Pages for now.
+				'post_type'   => $post_types,
 				'post_status' => 'publish',
 				'date_query'  => [
 					'after'  => $earliest,
