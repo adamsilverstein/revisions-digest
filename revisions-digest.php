@@ -627,6 +627,75 @@ function delete_email_subscription( string $id ) {
 }
 
 /**
+ * Generate a signed unsubscribe token for a subscription.
+ *
+ * @param string $subscription_id The subscription ID.
+ * @return string The HMAC token.
+ */
+function get_unsubscribe_token( string $subscription_id ): string {
+	return hash_hmac( 'sha256', $subscription_id, wp_salt( 'nonce' ) );
+}
+
+/**
+ * Generate an unsubscribe URL for a subscription.
+ *
+ * @param string $subscription_id The subscription ID.
+ * @return string The unsubscribe URL.
+ */
+function get_unsubscribe_url( string $subscription_id ): string {
+	return add_query_arg(
+		[
+			'revisions_digest_unsubscribe' => $subscription_id,
+			'token'                        => get_unsubscribe_token( $subscription_id ),
+		],
+		home_url( '/' )
+	);
+}
+
+/**
+ * Handle unsubscribe requests via query parameter.
+ */
+add_action(
+	'template_redirect',
+	function (): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Unsubscribe links use HMAC token verification, not nonces.
+		if ( empty( $_GET['revisions_digest_unsubscribe'] ) || empty( $_GET['token'] ) ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$subscription_id = sanitize_text_field( wp_unslash( $_GET['revisions_digest_unsubscribe'] ) );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$token          = sanitize_text_field( wp_unslash( $_GET['token'] ) );
+		$expected_token = get_unsubscribe_token( $subscription_id );
+
+		if ( ! hash_equals( $expected_token, $token ) ) {
+			wp_die(
+				esc_html__( 'Invalid unsubscribe link.', 'revisions-digest' ),
+				esc_html__( 'Error', 'revisions-digest' ),
+				[ 'response' => 403 ]
+			);
+		}
+
+		$result = delete_email_subscription( $subscription_id );
+
+		if ( is_wp_error( $result ) ) {
+			wp_die(
+				esc_html( $result->get_error_message() ),
+				esc_html__( 'Error', 'revisions-digest' ),
+				[ 'response' => 404 ]
+			);
+		}
+
+		wp_die(
+			esc_html__( 'You have been unsubscribed from the Revisions Digest.', 'revisions-digest' ),
+			esc_html__( 'Unsubscribed', 'revisions-digest' ),
+			[ 'response' => 200 ]
+		);
+	}
+);
+
+/**
  * Register custom cron schedules.
  *
  * @param array $schedules Existing cron schedules.
@@ -773,10 +842,11 @@ function get_email_subject( int $changes_count ): string {
 /**
  * Generate HTML email content.
  *
- * @param array $changes The array of changes.
+ * @param array  $changes         The array of changes.
+ * @param string $unsubscribe_url Optional unsubscribe URL.
  * @return string The HTML email content.
  */
-function get_email_content( array $changes ): string {
+function get_email_content( array $changes, string $unsubscribe_url = '' ): string {
 	$site_name = get_bloginfo( 'name' );
 	$site_url  = home_url();
 
@@ -942,6 +1012,9 @@ function get_email_content( array $changes ): string {
 			?>
 		</p>
 		<p><?php esc_html_e( 'To manage your subscription, visit the WordPress dashboard.', 'revisions-digest' ); ?></p>
+		<?php if ( $unsubscribe_url ) : ?>
+			<p><a href="<?php echo esc_url( $unsubscribe_url ); ?>"><?php esc_html_e( 'Unsubscribe', 'revisions-digest' ); ?></a></p>
+		<?php endif; ?>
 	</div>
 </body>
 </html>
@@ -961,13 +1034,16 @@ function send_digest_email( string $subscription_id ): bool {
 		return false;
 	}
 
-	$timeframe = get_timeframe_for_frequency( $subscription['frequency'] );
-	$changes   = get_digest_changes_for_timeframe( $timeframe );
-	$subject   = get_email_subject( count( $changes ) );
-	$content   = get_email_content( $changes );
+	$timeframe   = get_timeframe_for_frequency( $subscription['frequency'] );
+	$changes     = get_digest_changes_for_timeframe( $timeframe );
+	$subject     = get_email_subject( count( $changes ) );
+	$unsubscribe = get_unsubscribe_url( $subscription_id );
+	$content     = get_email_content( $changes, $unsubscribe );
 
 	$headers = [
 		'Content-Type: text/html; charset=UTF-8',
+		'List-Unsubscribe: <' . $unsubscribe . '>',
+		'List-Unsubscribe-Post: List-Unsubscribe=One-Click',
 	];
 
 	$sent = wp_mail( $subscription['email'], $subject, $content, $headers );
