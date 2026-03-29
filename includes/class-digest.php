@@ -88,6 +88,13 @@ class Digest {
 	 * }
 	 */
 	public function get_changes(): array {
+		$cache_key = 'revisions_digest_' . md5( $this->period . '_' . $this->group_by . '_' . (string) $this->custom_timeframe );
+		$cached    = get_transient( $cache_key );
+
+		if ( false !== $cached ) {
+			return $cached;
+		}
+
 		$timeframe = $this->get_timeframe();
 		$modified  = $this->get_updated_posts( $timeframe );
 		$changes   = [];
@@ -128,7 +135,11 @@ class Digest {
 			$changes[] = $data;
 		}
 
-		return $this->group_changes( $changes );
+		$result = $this->group_changes( $changes );
+
+		set_transient( $cache_key, $result, HOUR_IN_SECONDS );
+
+		return $result;
 	}
 
 	/**

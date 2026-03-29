@@ -69,6 +69,21 @@ add_action(
 	}
 );
 
+// Invalidate digest caches when posts are saved.
+add_action(
+	'save_post',
+	function (): void {
+		global $wpdb;
+
+		// Delete all revisions_digest transients.
+		$wpdb->query(
+			"DELETE FROM {$wpdb->options}
+			WHERE option_name LIKE '_transient_revisions_digest_%'
+			OR option_name LIKE '_transient_timeout_revisions_digest_%'"
+		);
+	}
+);
+
 // Enqueue dashboard assets.
 add_action( 'admin_enqueue_scripts', __NAMESPACE__ . '\enqueue_dashboard_assets' );
 
