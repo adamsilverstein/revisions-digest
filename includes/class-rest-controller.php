@@ -89,9 +89,16 @@ class REST_Controller extends WP_REST_Controller {
 	public function get_items( $request ): WP_REST_Response {
 		$period   = $request->get_param( 'period' );
 		$group_by = $request->get_param( 'group_by' );
+		$page     = (int) $request->get_param( 'page' );
+		$per_page = (int) $request->get_param( 'per_page' );
 
-		$digest  = new Digest( $period, $group_by );
-		$changes = $digest->get_changes();
+		$digest      = new Digest( $period, $group_by );
+		$all_changes = $digest->get_changes();
+
+		$total    = count( $all_changes );
+		$pages    = (int) ceil( $total / $per_page );
+		$offset   = ( $page - 1 ) * $per_page;
+		$changes  = array_slice( $all_changes, $offset, $per_page );
 
 		$response_data = [];
 
@@ -125,7 +132,7 @@ class REST_Controller extends WP_REST_Controller {
 			];
 		}
 
-		return new WP_REST_Response(
+		$response = new WP_REST_Response(
 			[
 				'period'   => $period,
 				'group_by' => $group_by,
@@ -134,6 +141,11 @@ class REST_Controller extends WP_REST_Controller {
 			],
 			200
 		);
+
+		$response->header( 'X-WP-Total', (string) $total );
+		$response->header( 'X-WP-TotalPages', (string) $pages );
+
+		return $response;
 	}
 
 	/**
@@ -166,6 +178,21 @@ class REST_Controller extends WP_REST_Controller {
 					Digest::GROUP_BY_TAXONOMY,
 				],
 				'sanitize_callback' => 'sanitize_text_field',
+			],
+			'page'     => [
+				'description'       => __( 'Current page of the collection.', 'revisions-digest' ),
+				'type'              => 'integer',
+				'default'           => 1,
+				'minimum'           => 1,
+				'sanitize_callback' => 'absint',
+			],
+			'per_page' => [
+				'description'       => __( 'Maximum number of items to return per page.', 'revisions-digest' ),
+				'type'              => 'integer',
+				'default'           => 10,
+				'minimum'           => 1,
+				'maximum'           => 100,
+				'sanitize_callback' => 'absint',
 			],
 		];
 	}
