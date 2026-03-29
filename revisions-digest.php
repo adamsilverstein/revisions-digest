@@ -641,13 +641,16 @@ function get_unsubscribe_url( string $subscription_id ): string {
 add_action(
 	'template_redirect',
 	function (): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Unsubscribe links use HMAC token verification, not nonces.
 		if ( empty( $_GET['revisions_digest_unsubscribe'] ) || empty( $_GET['token'] ) ) {
 			return;
 		}
 
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$subscription_id = sanitize_text_field( wp_unslash( $_GET['revisions_digest_unsubscribe'] ) );
-		$token           = sanitize_text_field( wp_unslash( $_GET['token'] ) );
-		$expected_token  = get_unsubscribe_token( $subscription_id );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$token          = sanitize_text_field( wp_unslash( $_GET['token'] ) );
+		$expected_token = get_unsubscribe_token( $subscription_id );
 
 		if ( ! hash_equals( $expected_token, $token ) ) {
 			wp_die(
@@ -1028,11 +1031,11 @@ function send_digest_email( string $subscription_id ): bool {
 		return false;
 	}
 
-	$timeframe     = get_timeframe_for_frequency( $subscription['frequency'] );
-	$changes       = get_digest_changes_for_timeframe( $timeframe );
-	$subject       = get_email_subject( count( $changes ) );
-	$unsubscribe   = get_unsubscribe_url( $subscription_id );
-	$content       = get_email_content( $changes, $unsubscribe );
+	$timeframe   = get_timeframe_for_frequency( $subscription['frequency'] );
+	$changes     = get_digest_changes_for_timeframe( $timeframe );
+	$subject     = get_email_subject( count( $changes ) );
+	$unsubscribe = get_unsubscribe_url( $subscription_id );
+	$content     = get_email_content( $changes, $unsubscribe );
 
 	$headers = [
 		'Content-Type: text/html; charset=UTF-8',
