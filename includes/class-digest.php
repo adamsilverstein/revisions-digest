@@ -95,6 +95,31 @@ class Digest {
 			return $cached;
 		}
 
+		$result = $this->compute_changes();
+
+		// Strip non-serializable objects before caching. Text_Diff and
+		// WP_Post objects may not hydrate correctly from transients.
+		$cacheable = array_map(
+			function ( array $change ): array {
+				unset( $change['diff'], $change['latest'], $change['earliest'] );
+				return $change;
+			},
+			$result
+		);
+		set_transient( $cache_key, $cacheable, HOUR_IN_SECONDS );
+
+		return $cacheable;
+	}
+
+	/**
+	 * Compute changes without caching.
+	 *
+	 * Returns the full data including Text_Diff and WP_Post objects
+	 * needed by get_grouped_changes() for intelligent descriptions.
+	 *
+	 * @return array[] Array of change data.
+	 */
+	private function compute_changes(): array {
 		$timeframe = $this->get_timeframe();
 		$modified  = $this->get_updated_posts( $timeframe );
 		$changes   = [];
@@ -135,11 +160,7 @@ class Digest {
 			$changes[] = $data;
 		}
 
-		$result = $this->group_changes( $changes );
-
-		set_transient( $cache_key, $result, HOUR_IN_SECONDS );
-
-		return $result;
+		return $this->group_changes( $changes );
 	}
 
 	/**
@@ -148,7 +169,9 @@ class Digest {
 	 * @return array Grouped changes with descriptions.
 	 */
 	public function get_grouped_changes(): array {
-		$changes = $this->get_changes();
+		// Bypass cache since intelligent descriptions need Text_Diff
+		// and WP_Post objects that are not stored in the transient.
+		$changes = $this->compute_changes();
 		return $this->add_intelligent_descriptions( $changes );
 	}
 
