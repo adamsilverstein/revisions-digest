@@ -116,9 +116,9 @@ class Digest {
 			);
 			$rendered = $this->render_diff( $diff, $renderer );
 
-			$title_diff    = $this->get_field_diff( $bounds['latest'], $bounds['earliest'], 'post_title' );
-			$excerpt_diff  = $this->get_field_diff( $bounds['latest'], $bounds['earliest'], 'post_excerpt' );
-			$title_rendered  = $title_diff ? $this->render_diff( $title_diff, $renderer ) : '';
+			$title_diff       = $this->get_field_diff( $bounds['latest'], $bounds['earliest'], 'post_title' );
+			$excerpt_diff     = $this->get_field_diff( $bounds['latest'], $bounds['earliest'], 'post_excerpt' );
+			$title_rendered   = $title_diff ? $this->render_diff( $title_diff, $renderer ) : '';
 			$excerpt_rendered = $excerpt_diff ? $this->render_diff( $excerpt_diff, $renderer ) : '';
 
 			$data = [
