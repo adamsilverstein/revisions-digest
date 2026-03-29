@@ -89,9 +89,32 @@ class REST_Controller extends WP_REST_Controller {
 	public function get_items( $request ): WP_REST_Response {
 		$period   = $request->get_param( 'period' );
 		$group_by = $request->get_param( 'group_by' );
+		$page     = (int) $request->get_param( 'page' );
+		$per_page = (int) $request->get_param( 'per_page' );
 
-		$digest  = new Digest( $period, $group_by );
-		$changes = $digest->get_changes();
+		$digest      = new Digest( $period, $group_by );
+		$all_changes = $digest->get_changes();
+
+		// Flatten grouped results into a flat list for pagination.
+		// Non-default group_by modes return associative arrays of arrays.
+		$flat_changes = [];
+		foreach ( $all_changes as $key => $value ) {
+			if ( isset( $value['post_id'] ) ) {
+				// Already a flat change item.
+				$flat_changes[] = $value;
+			} else {
+				// Grouped bucket — merge individual changes, tagging with group key.
+				foreach ( $value as $change ) {
+					$change['group'] = $key;
+					$flat_changes[]  = $change;
+				}
+			}
+		}
+
+		$total   = count( $flat_changes );
+		$pages   = (int) ceil( $total / $per_page );
+		$offset  = ( $page - 1 ) * $per_page;
+		$changes = array_slice( $flat_changes, $offset, $per_page );
 
 		$response_data = [];
 
@@ -113,7 +136,7 @@ class REST_Controller extends WP_REST_Controller {
 				)
 			);
 
-			$response_data[] = [
+			$item = [
 				'post_id'          => $change['post_id'],
 				'post_title'       => get_the_title( $change['post_id'] ),
 				'post_url'         => get_permalink( $change['post_id'] ),
@@ -123,9 +146,15 @@ class REST_Controller extends WP_REST_Controller {
 				'excerpt_rendered' => $change['excerpt_rendered'] ?? '',
 				'authors'          => array_values( $authors ),
 			];
+
+			if ( isset( $change['group'] ) ) {
+				$item['group'] = $change['group'];
+			}
+
+			$response_data[] = $item;
 		}
 
-		return new WP_REST_Response(
+		$response = new WP_REST_Response(
 			[
 				'period'   => $period,
 				'group_by' => $group_by,
@@ -134,6 +163,11 @@ class REST_Controller extends WP_REST_Controller {
 			],
 			200
 		);
+
+		$response->header( 'X-WP-Total', (string) $total );
+		$response->header( 'X-WP-TotalPages', (string) $pages );
+
+		return $response;
 	}
 
 	/**
@@ -166,6 +200,21 @@ class REST_Controller extends WP_REST_Controller {
 					Digest::GROUP_BY_TAXONOMY,
 				],
 				'sanitize_callback' => 'sanitize_text_field',
+			],
+			'page'     => [
+				'description'       => __( 'Current page of the collection.', 'revisions-digest' ),
+				'type'              => 'integer',
+				'default'           => 1,
+				'minimum'           => 1,
+				'sanitize_callback' => 'absint',
+			],
+			'per_page' => [
+				'description'       => __( 'Maximum number of items to return per page.', 'revisions-digest' ),
+				'type'              => 'integer',
+				'default'           => 10,
+				'minimum'           => 1,
+				'maximum'           => 100,
+				'sanitize_callback' => 'absint',
 			],
 		];
 	}
