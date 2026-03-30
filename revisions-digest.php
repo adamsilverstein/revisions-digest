@@ -147,6 +147,9 @@ function enqueue_dashboard_assets( string $hook_suffix ): void {
 					'deleteLabel'          => __( 'Delete', 'revisions-digest' ),
 					'errorOccurred'        => __( 'An error occurred.', 'revisions-digest' ),
 					'confirmDelete'        => __( 'Are you sure you want to delete this subscription?', 'revisions-digest' ),
+					'sendTest'             => __( 'Send Test', 'revisions-digest' ),
+					'sending'              => __( 'Sending...', 'revisions-digest' ),
+					'sent'                 => __( 'Sent!', 'revisions-digest' ),
 				],
 			]
 		);
