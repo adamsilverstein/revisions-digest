@@ -101,6 +101,29 @@
 	font-size: 13px;
 }
 
+/* Collapsible details */
+.revisions-digest-details {
+	margin-top: 8px;
+}
+
+.revisions-digest-details summary {
+	cursor: pointer;
+	color: #646970;
+	font-size: 13px;
+	padding: 4px 0;
+	list-style: revert;
+}
+
+.revisions-digest-details summary:hover {
+	color: #2271b1;
+}
+
+.revisions-digest-details h4 {
+	margin: 8px 0 4px;
+	font-size: 12px;
+	color: #50575e;
+}
+
 /* Diff table */
 .revisions-digest-widget table.diff {
 	width: 100%;

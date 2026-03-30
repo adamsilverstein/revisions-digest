@@ -231,8 +231,9 @@ function render_widget_content( array $changes ): void {
 				__( 'Changed by %l', 'revisions-digest' ),
 				$authors
 			);
+			echo '<details class="revisions-digest-details">';
 			printf(
-				'<p>%1$s</p>',
+				'<summary>%1$s</summary>',
 				esc_html( $changes_by )
 			);
 
@@ -257,6 +258,7 @@ function render_widget_content( array $changes ): void {
 				echo '</table>';
 			}
 
+			echo '</details>';
 			echo '</div>';
 		}
 	}

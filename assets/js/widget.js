@@ -170,18 +170,18 @@
 			}
 			html += '</h3>';
 
-			// Authors
+			// Authors and collapsible diff
 			const authorNames = change.authors.map(function (author) {
 				return author.display_name;
 			});
-			if (authorNames.length > 0) {
-				html +=
-					'<p>Changed by ' +
-					escapeHtml(formatAuthorList(authorNames)) +
-					'</p>';
-			}
+			const summaryText =
+				authorNames.length > 0
+					? 'Changed by ' + escapeHtml(formatAuthorList(authorNames))
+					: 'View changes';
 
-			// Diffs
+			html += '<details class="revisions-digest-details">';
+			html += '<summary>' + summaryText + '</summary>';
+
 			if (change.title_rendered) {
 				html += '<h4>Title</h4>';
 				html +=
@@ -198,6 +198,8 @@
 				html += '<h4>Content</h4>';
 				html += '<table class="diff">' + change.rendered + '</table>';
 			}
+
+			html += '</details>';
 			html += '</div>';
 		});
 
