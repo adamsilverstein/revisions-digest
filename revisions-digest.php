@@ -402,7 +402,8 @@ function get_updated_posts( int $timeframe ): array {
 	 *
 	 * @param string[] $post_types Array of post type slugs. Default: array( 'page' ).
 	 */
-	$post_types = apply_filters( 'revisions_digest_post_types', [ 'page' ] );
+	$default_types = get_option( 'revisions_digest_post_types', [ 'page' ] );
+	$post_types    = apply_filters( 'revisions_digest_post_types', $default_types );
 
 	// Fetch IDs of all posts that have been modified within the time period.
 	$modified = new WP_Query(
@@ -1369,6 +1370,23 @@ add_action( 'admin_init', __NAMESPACE__ . '\register_settings' );
  */
 function register_settings(): void {
 	register_setting( 'reading', 'revisions_digest_rss_enabled' );
+	register_setting(
+		'reading',
+		'revisions_digest_post_types',
+		[
+			'type'              => 'array',
+			'sanitize_callback' => __NAMESPACE__ . '\sanitize_post_types_setting',
+			'default'           => [ 'page' ],
+		]
+	);
+
+	add_settings_field(
+		'revisions_digest_post_types',
+		__( 'Revisions Digest Post Types', 'revisions-digest' ),
+		__NAMESPACE__ . '\render_post_types_setting',
+		'reading',
+		'default'
+	);
 
 	add_settings_field(
 		'revisions_digest_rss_enabled',
@@ -1377,6 +1395,41 @@ function register_settings(): void {
 		'reading',
 		'default'
 	);
+}
+
+/**
+ * Sanitize the post types setting.
+ *
+ * @param mixed $value The submitted value.
+ * @return string[] Sanitized array of post type slugs.
+ */
+function sanitize_post_types_setting( $value ): array {
+	if ( ! is_array( $value ) ) {
+		return [ 'page' ];
+	}
+	return array_map( 'sanitize_key', $value );
+}
+
+/**
+ * Render the post types setting checkboxes.
+ */
+function render_post_types_setting(): void {
+	$selected   = get_option( 'revisions_digest_post_types', [ 'page' ] );
+	$post_types = get_post_types( [ 'public' => true ], 'objects' );
+
+	foreach ( $post_types as $post_type ) {
+		if ( 'attachment' === $post_type->name ) {
+			continue;
+		}
+		$checked = in_array( $post_type->name, $selected, true );
+		printf(
+			'<label style="display: block; margin-bottom: 4px;"><input type="checkbox" name="revisions_digest_post_types[]" value="%s" %s /> %s</label>',
+			esc_attr( $post_type->name ),
+			checked( $checked, true, false ),
+			esc_html( $post_type->labels->name )
+		);
+	}
+	echo '<p class="description">' . esc_html__( 'Select which post types to include in the revisions digest.', 'revisions-digest' ) . '</p>';
 }
 
 /**

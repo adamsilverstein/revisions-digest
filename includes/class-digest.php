@@ -183,7 +183,8 @@ class Digest {
 		 *
 		 * @param string[] $post_types Array of post type slugs. Default: array( 'page' ).
 		 */
-		$post_types = apply_filters( 'revisions_digest_post_types', [ 'page' ] );
+		$default_types = get_option( 'revisions_digest_post_types', [ 'page' ] );
+		$post_types    = apply_filters( 'revisions_digest_post_types', $default_types );
 
 		// Fetch IDs of all posts that have been modified within the time period.
 		$modified = new WP_Query(
