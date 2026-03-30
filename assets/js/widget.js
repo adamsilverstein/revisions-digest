@@ -181,8 +181,23 @@
 					'</p>';
 			}
 
-			// Diff
-			html += '<table class="diff">' + change.rendered + '</table>';
+			// Diffs
+			if (change.title_rendered) {
+				html += '<h4>Title</h4>';
+				html +=
+					'<table class="diff">' + change.title_rendered + '</table>';
+			}
+			if (change.excerpt_rendered) {
+				html += '<h4>Excerpt</h4>';
+				html +=
+					'<table class="diff">' +
+					change.excerpt_rendered +
+					'</table>';
+			}
+			if (change.rendered) {
+				html += '<h4>Content</h4>';
+				html += '<table class="diff">' + change.rendered + '</table>';
+			}
 			html += '</div>';
 		});
 
