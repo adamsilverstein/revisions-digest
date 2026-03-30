@@ -33,4 +33,37 @@ class Test_Get_Posts extends TestCase {
 		$this->assertEquals( $expected, $actual );
 	}
 
+	public function test_post_types_filter_includes_additional_types() {
+		$four_days_ago = strtotime( '-4 days' );
+		$week_ago      = strtotime( '-1 week' );
+
+		$page = self::post_factory( [
+			'post_type'     => 'page',
+			'post_modified' => date( 'Y-m-d H:i:s', $four_days_ago ),
+		] );
+		$post = self::post_factory( [
+			'post_type'     => 'post',
+			'post_modified' => date( 'Y-m-d H:i:s', $four_days_ago ),
+		] );
+
+		// Without filter, only pages are returned.
+		$default_result = \RevisionsDigest\get_updated_posts( $week_ago );
+		$this->assertContains( $page->ID, $default_result );
+		$this->assertNotContains( $post->ID, $default_result );
+
+		// With filter, both types are returned.
+		$filter = function () {
+			return [ 'page', 'post' ];
+		};
+		add_filter( 'revisions_digest_post_types', $filter );
+
+		try {
+			$filtered_result = \RevisionsDigest\get_updated_posts( $week_ago );
+			$this->assertContains( $page->ID, $filtered_result );
+			$this->assertContains( $post->ID, $filtered_result );
+		} finally {
+			remove_filter( 'revisions_digest_post_types', $filter );
+		}
+	}
+
 }

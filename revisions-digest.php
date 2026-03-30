@@ -397,11 +397,18 @@ function get_digest_with_descriptions( string $period = Digest::PERIOD_WEEK, str
 function get_updated_posts( int $timeframe ): array {
 	$earliest = gmdate( 'Y-m-d H:i:s', $timeframe );
 
+	/**
+	 * Filters the post types included in the revisions digest.
+	 *
+	 * @param string[] $post_types Array of post type slugs. Default: array( 'page' ).
+	 */
+	$post_types = apply_filters( 'revisions_digest_post_types', [ 'page' ] );
+
 	// Fetch IDs of all posts that have been modified within the time period.
 	$modified = new WP_Query(
 		[
 			'fields'      => 'ids',
-			'post_type'   => 'page', // Just Pages for now.
+			'post_type'   => $post_types,
 			'post_status' => 'publish',
 			'date_query'  => [
 				'after'  => $earliest,
@@ -409,15 +416,6 @@ function get_updated_posts( int $timeframe ): array {
 			],
 		]
 	);
-
-	// @TODO this might prime the post cache
-	/**
-	 * $revisions = new WP_Query( [
-	 * 'post_type'       => 'revision',
-	 * 'post_status'     => 'all',
-	 * 'post_parent__in' => $modified->posts,
-	 * ] );
-	 */
 
 	return $modified->posts;
 }
