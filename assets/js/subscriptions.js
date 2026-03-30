@@ -153,6 +153,10 @@
 							// eslint-disable-next-line no-alert
 							alert(data.data.message);
 						}
+					})
+					.catch(function () {
+						// eslint-disable-next-line no-alert
+						alert(i18n.errorOccurred);
 					});
 			};
 		});
@@ -240,6 +244,10 @@
 						// eslint-disable-next-line no-alert
 						alert(data.data.message);
 					}
+				})
+				.catch(function () {
+					// eslint-disable-next-line no-alert
+					alert(i18n.errorOccurred);
 				});
 		});
 	}
