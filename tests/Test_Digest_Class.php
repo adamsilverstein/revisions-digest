@@ -119,4 +119,187 @@ class Test_Digest_Class extends TestCase {
 		$described_changes = \RevisionsDigest\get_digest_with_descriptions();
 		$this->assertIsArray( $described_changes );
 	}
+
+	/**
+	 * Helper: create a page with two revisions at specific timestamps.
+	 * Returns the page post object.
+	 *
+	 * @param string $old_content   Content of the older revision.
+	 * @param string $new_content   Content of the newer revision.
+	 * @param int    $old_timestamp Timestamp for the old revision.
+	 * @param int    $new_timestamp Timestamp for the new revision.
+	 * @return \WP_Post The page.
+	 */
+	private function create_page_with_revisions( string $old_content, string $new_content, int $old_timestamp, int $new_timestamp ): \WP_Post {
+		// Create with old content first.
+		$page = self::post_factory( [
+			'post_content'  => $old_content,
+			'post_modified' => date( 'Y-m-d H:i:s', $old_timestamp ),
+		] );
+
+		// Save a revision with old content/date.
+		wp_save_post_revision( $page->ID );
+
+		// Update to new content.
+		wp_update_post( [
+			'ID'           => $page->ID,
+			'post_content' => $new_content,
+		] );
+		wp_save_post_revision( $page->ID );
+
+		// Fix the page post_modified to the desired timestamp.
+		global $wpdb;
+		$wpdb->update(
+			$wpdb->posts,
+			[
+				'post_modified'     => date( 'Y-m-d H:i:s', $new_timestamp ),
+				'post_modified_gmt' => gmdate( 'Y-m-d H:i:s', $new_timestamp ),
+			],
+			[ 'ID' => $page->ID ]
+		);
+		clean_post_cache( $page->ID );
+
+		// Fix the newest revision's date too.
+		$revisions = wp_get_post_revisions( $page->ID );
+		$newest    = reset( $revisions );
+		if ( $newest ) {
+			$wpdb->update(
+				$wpdb->posts,
+				[
+					'post_modified'     => date( 'Y-m-d H:i:s', $new_timestamp ),
+					'post_modified_gmt' => gmdate( 'Y-m-d H:i:s', $new_timestamp ),
+					'post_date'         => date( 'Y-m-d H:i:s', $new_timestamp ),
+					'post_date_gmt'     => gmdate( 'Y-m-d H:i:s', $new_timestamp ),
+				],
+				[ 'ID' => $newest->ID ]
+			);
+			clean_post_cache( $newest->ID );
+		}
+
+		return get_post( $page->ID );
+	}
+
+	/**
+	 * @group digest
+	 */
+	public function test_day_period_excludes_older_changes() {
+		$this->create_page_with_revisions(
+			'Original',
+			'Updated',
+			strtotime( '-10 days' ),
+			strtotime( '-3 days' )
+		);
+
+		$digest = new Digest( Digest::PERIOD_DAY );
+		$this->assertEmpty( $digest->get_changes() );
+	}
+
+	/**
+	 * @group digest
+	 */
+	public function test_month_period_includes_three_week_old_changes() {
+		$page = $this->create_page_with_revisions(
+			'Content v1',
+			'Content v2',
+			strtotime( '-2 months' ),
+			strtotime( '-3 weeks' )
+		);
+
+		// Week should miss it.
+		$week = new Digest( Digest::PERIOD_WEEK );
+		$this->assertEmpty( $week->get_changes() );
+
+		// Month should find it.
+		$month = new Digest( Digest::PERIOD_MONTH );
+		$changes = $month->get_changes();
+		$this->assertNotEmpty( $changes );
+		$this->assertEquals( $page->ID, $changes[0]['post_id'] );
+	}
+
+	/**
+	 * @group digest
+	 */
+	public function test_custom_timeframe_overrides_period() {
+		$this->create_page_with_revisions(
+			'Old content',
+			'New content',
+			strtotime( '-20 days' ),
+			strtotime( '-5 days' )
+		);
+
+		// 3-day custom timeframe should miss the 5-day-old post.
+		$short = new Digest( Digest::PERIOD_WEEK, Digest::GROUP_BY_POST, strtotime( '-3 days' ) );
+		$this->assertEmpty( $short->get_changes() );
+
+		// 10-day custom timeframe should find it.
+		$long = new Digest( Digest::PERIOD_WEEK, Digest::GROUP_BY_POST, strtotime( '-10 days' ) );
+		$this->assertNotEmpty( $long->get_changes() );
+	}
+
+	/**
+	 * @group digest
+	 */
+	public function test_changes_include_expected_fields() {
+		$page = $this->create_page_with_revisions(
+			'Original',
+			'Updated',
+			strtotime( '-10 days' ),
+			strtotime( '-2 days' )
+		);
+
+		$digest  = new Digest( Digest::PERIOD_WEEK );
+		$changes = $digest->get_changes();
+
+		$this->assertNotEmpty( $changes );
+		$change = $changes[0];
+
+		$this->assertArrayHasKey( 'post_id', $change );
+		$this->assertArrayHasKey( 'rendered', $change );
+		$this->assertArrayHasKey( 'authors', $change );
+		$this->assertEquals( $page->ID, $change['post_id'] );
+		$this->assertNotEmpty( $change['rendered'] );
+	}
+
+	/**
+	 * @group digest
+	 */
+	public function test_group_by_date_keys_by_date_string() {
+		$this->create_page_with_revisions(
+			'Original content',
+			'Grouped content',
+			strtotime( '-10 days' ),
+			strtotime( '-2 days' )
+		);
+
+		$digest  = new Digest( Digest::PERIOD_WEEK, Digest::GROUP_BY_DATE );
+		$changes = $digest->get_changes();
+
+		$this->assertNotEmpty( $changes );
+		$keys = array_keys( $changes );
+		$this->assertMatchesRegularExpression( '/^\d{4}-\d{2}-\d{2}$/', $keys[0] );
+	}
+
+	/**
+	 * Text_Diff::getEdits() is not available in all WP test environments.
+	 *
+	 * @group digest
+	 * @requires function Text_Diff::getEdits
+	 */
+	public function test_grouped_changes_include_descriptions() {
+		$this->create_page_with_revisions(
+			'Old text',
+			'New text for descriptions',
+			strtotime( '-10 days' ),
+			strtotime( '-2 days' )
+		);
+
+		$digest  = new Digest( Digest::PERIOD_WEEK );
+		$grouped = $digest->get_grouped_changes();
+
+		$this->assertNotEmpty( $grouped );
+		$first = reset( $grouped );
+		$this->assertArrayHasKey( 'description', $first );
+		$this->assertArrayHasKey( 'changes', $first );
+		$this->assertNotEmpty( $first['description'] );
+	}
 }
