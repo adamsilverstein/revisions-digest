@@ -1160,7 +1160,20 @@ add_action(
 		// Verify subscription ownership.
 		verify_subscription_ownership( $id );
 
-		$sent = send_digest_email( $id );
+		$subscription = get_subscription( $id );
+		if ( ! $subscription ) {
+			wp_send_json_error( [ 'message' => __( 'Subscription not found.', 'revisions-digest' ) ] );
+		}
+
+		// Send the email without updating last_sent so scheduled digests are not affected.
+		$timeframe = get_timeframe_for_frequency( $subscription['frequency'] );
+		$changes   = get_digest_changes_for_timeframe( $timeframe );
+		$subject   = get_email_subject( count( $changes ) );
+		$unsub_url = get_unsubscribe_url( $id );
+		$content   = get_email_content( $changes, $unsub_url );
+		$headers   = [ 'Content-Type: text/html; charset=UTF-8' ];
+
+		$sent = wp_mail( $subscription['email'], $subject, $content, $headers );
 
 		if ( $sent ) {
 			wp_send_json_success( [ 'message' => __( 'Test email sent successfully.', 'revisions-digest' ) ] );
@@ -1169,6 +1182,7 @@ add_action(
 		wp_send_json_error( [ 'message' => __( 'Failed to send test email.', 'revisions-digest' ) ] );
 	}
 );
+
 /**
  * Register RSS feed settings in Settings → Reading.
  */
