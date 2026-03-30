@@ -147,6 +147,9 @@ function enqueue_dashboard_assets( string $hook_suffix ): void {
 					'deleteLabel'          => __( 'Delete', 'revisions-digest' ),
 					'errorOccurred'        => __( 'An error occurred.', 'revisions-digest' ),
 					'confirmDelete'        => __( 'Are you sure you want to delete this subscription?', 'revisions-digest' ),
+					'sendTest'             => __( 'Send Test', 'revisions-digest' ),
+					'sending'              => __( 'Sending...', 'revisions-digest' ),
+					'sent'                 => __( 'Sent!', 'revisions-digest' ),
 				],
 			]
 		);
@@ -347,6 +350,8 @@ function render_subscription_list( array $subscriptions, string $nonce ): void {
 						<a href="#" class="edit-subscription" data-id="<?php echo esc_attr( $id ); ?>" data-email="<?php echo esc_attr( $subscription['email'] ); ?>" data-frequency="<?php echo esc_attr( $subscription['frequency'] ); ?>"><?php esc_html_e( 'Edit', 'revisions-digest' ); ?></a>
 						|
 						<a href="#" class="delete-subscription" data-id="<?php echo esc_attr( $id ); ?>"><?php esc_html_e( 'Delete', 'revisions-digest' ); ?></a>
+						|
+						<a href="#" class="test-subscription" data-id="<?php echo esc_attr( $id ); ?>"><?php esc_html_e( 'Send Test', 'revisions-digest' ); ?></a>
 					</span>
 				</li>
 			<?php endforeach; ?>
@@ -1140,6 +1145,46 @@ add_action(
 				'id'      => $id,
 			]
 		);
+	}
+);
+
+/**
+ * AJAX handler for sending a test email.
+ */
+add_action(
+	'wp_ajax_revisions_digest_send_test_email',
+	function (): void {
+		check_ajax_referer( 'revisions_digest_subscription', 'nonce' );
+
+		if ( ! current_user_can( 'edit_posts' ) ) {
+			wp_send_json_error( [ 'message' => __( 'Permission denied.', 'revisions-digest' ) ] );
+		}
+
+		$id = isset( $_POST['id'] ) ? sanitize_text_field( wp_unslash( $_POST['id'] ) ) : '';
+
+		// Verify subscription ownership.
+		verify_subscription_ownership( $id );
+
+		$subscription = get_subscription( $id );
+		if ( ! $subscription ) {
+			wp_send_json_error( [ 'message' => __( 'Subscription not found.', 'revisions-digest' ) ] );
+		}
+
+		// Send the email without updating last_sent so scheduled digests are not affected.
+		$timeframe = get_timeframe_for_frequency( $subscription['frequency'] );
+		$changes   = get_digest_changes_for_timeframe( $timeframe );
+		$subject   = get_email_subject( count( $changes ) );
+		$unsub_url = get_unsubscribe_url( $id );
+		$content   = get_email_content( $changes, $unsub_url );
+		$headers   = [ 'Content-Type: text/html; charset=UTF-8' ];
+
+		$sent = wp_mail( $subscription['email'], $subject, $content, $headers );
+
+		if ( $sent ) {
+			wp_send_json_success( [ 'message' => __( 'Test email sent successfully.', 'revisions-digest' ) ] );
+		}
+
+		wp_send_json_error( [ 'message' => __( 'Failed to send test email.', 'revisions-digest' ) ] );
 	}
 );
 

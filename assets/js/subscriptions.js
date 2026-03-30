@@ -103,11 +103,17 @@
 							escapeHtml(data.data.id) +
 							'">' +
 							escapeHtml(i18n.deleteLabel) +
+							'</a> | ' +
+							'<a href="#" class="test-subscription" data-id="' +
+							escapeHtml(data.data.id) +
+							'">' +
+							escapeHtml(i18n.sendTest || 'Send Test') +
 							'</a>' +
 							'</span>';
 						list.appendChild(li);
 						bindDeleteHandlers();
 						bindEditHandlers();
+						bindTestHandlers();
 					} else {
 						showMessage(addForm, data.data.message, 'error');
 					}
@@ -262,7 +268,51 @@
 		});
 	}
 
+	// Send test email handlers.
+	function bindTestHandlers() {
+		const testLinks = document.querySelectorAll('.test-subscription');
+		testLinks.forEach(function (link) {
+			link.onclick = function (e) {
+				e.preventDefault();
+				const id = this.getAttribute('data-id');
+				const btn = this;
+				btn.textContent = i18n.sending || 'Sending...';
+
+				const formData = new FormData();
+				formData.append('action', 'revisions_digest_send_test_email');
+				formData.append('nonce', nonce);
+				formData.append('id', id);
+
+				fetch(ajaxurl, {
+					method: 'POST',
+					body: formData,
+				})
+					.then(function (response) {
+						return response.json();
+					})
+					.then(function (data) {
+						btn.textContent = i18n.sendTest || 'Send Test';
+						if (data.success) {
+							btn.textContent = i18n.sent || 'Sent!';
+							setTimeout(function () {
+								btn.textContent = i18n.sendTest || 'Send Test';
+							}, 3000);
+						} else {
+							// eslint-disable-next-line no-alert
+							alert(data.data.message);
+						}
+					})
+					.catch(function () {
+						btn.textContent = i18n.sendTest || 'Send Test';
+						// eslint-disable-next-line no-alert
+						alert(i18n.errorOccurred);
+					});
+			};
+		});
+	}
+
 	// Initial binding.
 	bindDeleteHandlers();
 	bindEditHandlers();
+	bindTestHandlers();
 })();
