@@ -345,6 +345,8 @@ function render_subscription_list( array $subscriptions, string $nonce ): void {
 						<a href="#" class="edit-subscription" data-id="<?php echo esc_attr( $id ); ?>" data-email="<?php echo esc_attr( $subscription['email'] ); ?>" data-frequency="<?php echo esc_attr( $subscription['frequency'] ); ?>"><?php esc_html_e( 'Edit', 'revisions-digest' ); ?></a>
 						|
 						<a href="#" class="delete-subscription" data-id="<?php echo esc_attr( $id ); ?>"><?php esc_html_e( 'Delete', 'revisions-digest' ); ?></a>
+						|
+						<a href="#" class="test-subscription" data-id="<?php echo esc_attr( $id ); ?>"><?php esc_html_e( 'Send Test', 'revisions-digest' ); ?></a>
 					</span>
 				</li>
 			<?php endforeach; ?>
@@ -1141,6 +1143,32 @@ add_action(
 	}
 );
 
+/**
+ * AJAX handler for sending a test email.
+ */
+add_action(
+	'wp_ajax_revisions_digest_send_test_email',
+	function (): void {
+		check_ajax_referer( 'revisions_digest_subscription', 'nonce' );
+
+		if ( ! current_user_can( 'edit_posts' ) ) {
+			wp_send_json_error( [ 'message' => __( 'Permission denied.', 'revisions-digest' ) ] );
+		}
+
+		$id = isset( $_POST['id'] ) ? sanitize_text_field( wp_unslash( $_POST['id'] ) ) : '';
+
+		// Verify subscription ownership.
+		verify_subscription_ownership( $id );
+
+		$sent = send_digest_email( $id );
+
+		if ( $sent ) {
+			wp_send_json_success( [ 'message' => __( 'Test email sent successfully.', 'revisions-digest' ) ] );
+		}
+
+		wp_send_json_error( [ 'message' => __( 'Failed to send test email.', 'revisions-digest' ) ] );
+	}
+);
 /**
  * Register RSS feed settings in Settings → Reading.
  */
