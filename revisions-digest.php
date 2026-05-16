@@ -69,6 +69,10 @@ add_action(
 	}
 );
 
+// Invalidate cached digests whenever content that could appear in a digest changes.
+add_action( 'save_post', [ Digest::class, 'flush_cache' ] );
+add_action( 'deleted_post', [ Digest::class, 'flush_cache' ] );
+
 // Enqueue dashboard assets.
 add_action( 'admin_enqueue_scripts', __NAMESPACE__ . '\enqueue_dashboard_assets' );
 

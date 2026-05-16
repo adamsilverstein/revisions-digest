@@ -280,6 +280,114 @@ class Test_Digest_Class extends TestCase {
 	}
 
 	/**
+	 * The cache key is stable across instances built with the same parameters.
+	 *
+	 * @group cache
+	 */
+	public function test_cache_key_is_stable_for_same_parameters() {
+		$a = new Digest( Digest::PERIOD_WEEK, Digest::GROUP_BY_POST );
+		$b = new Digest( Digest::PERIOD_WEEK, Digest::GROUP_BY_POST );
+		$c = new Digest( Digest::PERIOD_DAY, Digest::GROUP_BY_USER );
+
+		$this->assertSame( $a->get_cache_key(), $b->get_cache_key() );
+		$this->assertNotSame( $a->get_cache_key(), $c->get_cache_key() );
+	}
+
+	/**
+	 * get_changes() writes its result to a transient.
+	 *
+	 * @group cache
+	 */
+	public function test_get_changes_writes_transient_cache() {
+		$digest = new Digest();
+		$this->assertFalse( get_transient( $digest->get_cache_key() ) );
+
+		$digest->get_changes();
+
+		// A miss returns false; an array (even empty) means it was cached.
+		$this->assertIsArray( get_transient( $digest->get_cache_key() ) );
+	}
+
+	/**
+	 * A second call returns the cached payload rather than recomputing.
+	 *
+	 * @group cache
+	 */
+	public function test_get_changes_serves_from_cache() {
+		$digest = new Digest();
+		$digest->get_changes();
+
+		// Poison the cache with a sentinel; a cached read returns it verbatim.
+		set_transient( $digest->get_cache_key(), [ 'sentinel' => true ], HOUR_IN_SECONDS );
+
+		$this->assertSame( [ 'sentinel' => true ], ( new Digest() )->get_changes() );
+	}
+
+	/**
+	 * flush_cache() invalidates previously cached results.
+	 *
+	 * @group cache
+	 */
+	public function test_flush_cache_invalidates_cached_results() {
+		$digest = new Digest();
+		$digest->get_changes();
+		set_transient( $digest->get_cache_key(), [ 'sentinel' => true ], HOUR_IN_SECONDS );
+
+		Digest::flush_cache();
+
+		// After a flush the key changes, so the poisoned entry is no longer read.
+		$this->assertNotSame( [ 'sentinel' => true ], ( new Digest() )->get_changes() );
+	}
+
+	/**
+	 * A cache hit returns real objects (not __PHP_Incomplete_Class), so
+	 * get_grouped_changes() can still read the diff. This is the round-trip
+	 * the stored payload must survive.
+	 *
+	 * @group cache
+	 */
+	public function test_cached_payload_round_trips_real_objects() {
+		$this->create_page_with_revisions(
+			'Original body',
+			'Rewritten body with changes',
+			strtotime( '-10 days' ),
+			strtotime( '-2 days' )
+		);
+
+		// First call computes and caches the full object payload.
+		$first = ( new Digest() )->get_changes();
+		$this->assertNotEmpty( $first );
+
+		// Second call is served from the transient (unserialized objects).
+		$cached = ( new Digest() )->get_changes();
+		$this->assertNotEmpty( $cached );
+
+		$change = $cached[0];
+		$this->assertInstanceOf( \Text_Diff::class, $change['diff'] );
+		$this->assertInstanceOf( \WP_Post::class, $change['latest'] );
+		$this->assertInstanceOf( \WP_Post::class, $change['earliest'] );
+		$this->assertNotInstanceOf( \__PHP_Incomplete_Class::class, $change['diff'] );
+		$this->assertSame( $first[0]['post_id'], $change['post_id'] );
+		$this->assertSame( $first[0]['rendered'], $change['rendered'] );
+	}
+
+	/**
+	 * Caching can be disabled via the TTL filter returning a non-positive value.
+	 *
+	 * @group cache
+	 */
+	public function test_cache_can_be_disabled_via_ttl_filter() {
+		add_filter( 'revisions_digest_cache_ttl', '__return_zero' );
+
+		$digest = new Digest();
+		$digest->get_changes();
+
+		$this->assertFalse( get_transient( $digest->get_cache_key() ) );
+
+		remove_filter( 'revisions_digest_cache_ttl', '__return_zero' );
+	}
+
+	/**
 	 * Text_Diff::getEdits() is not available in all WP test environments.
 	 *
 	 * @group digest
