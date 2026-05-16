@@ -36,6 +36,13 @@ class Digest {
 	const GROUP_BY_TAXONOMY = 'taxonomy';
 
 	/**
+	 * Option name holding the cache version. Bumping it invalidates every
+	 * cached digest at once, which is reliable even with an external object
+	 * cache (where enumerating transient keys is not).
+	 */
+	const CACHE_VERSION_OPTION = 'revisions_digest_cache_version';
+
+	/**
 	 * Default time period
 	 *
 	 * @var string
@@ -88,6 +95,89 @@ class Digest {
 	 * }
 	 */
 	public function get_changes(): array {
+		// Cached payloads contain Text_Diff (and Text_Diff_Op_*) objects. Their
+		// classes must be loaded before get_transient() unserializes them,
+		// otherwise a cache hit yields __PHP_Incomplete_Class instances and
+		// get_grouped_changes() fatals when reading the diff.
+		if ( ! class_exists( 'Text_Diff', false ) ) {
+			require_once ABSPATH . WPINC . '/wp-diff.php';
+		}
+
+		$cache_key = $this->get_cache_key();
+
+		/**
+		 * Filters how long, in seconds, a computed digest is cached.
+		 *
+		 * Return zero or a negative value to disable caching entirely.
+		 *
+		 * @param int    $ttl      Cache lifetime in seconds. Default one hour.
+		 * @param string $period   The digest period.
+		 * @param string $group_by The grouping method.
+		 */
+		$ttl = (int) apply_filters( 'revisions_digest_cache_ttl', HOUR_IN_SECONDS, $this->period, $this->group_by );
+
+		if ( $ttl > 0 ) {
+			$cached = get_transient( $cache_key );
+			if ( is_array( $cached ) ) {
+				return $cached;
+			}
+		}
+
+		$changes = $this->compute_changes();
+
+		if ( $ttl > 0 ) {
+			set_transient( $cache_key, $changes, $ttl );
+		}
+
+		return $changes;
+	}
+
+	/**
+	 * Build the transient cache key for this digest's parameters.
+	 *
+	 * The key incorporates the cache version so that {@see Digest::flush_cache()}
+	 * invalidates every cached digest atomically.
+	 *
+	 * @return string Cache key.
+	 */
+	public function get_cache_key(): string {
+		$parts = [
+			'v'  => self::get_cache_version(),
+			'p'  => $this->period,
+			'g'  => $this->group_by,
+			't'  => $this->custom_timeframe,
+			'pt' => get_option( 'revisions_digest_post_types', [ 'page' ] ),
+		];
+
+		return 'revisions_digest_' . md5( (string) wp_json_encode( $parts ) );
+	}
+
+	/**
+	 * Get the current cache version.
+	 *
+	 * @return int Cache version.
+	 */
+	private static function get_cache_version(): int {
+		return (int) get_option( self::CACHE_VERSION_OPTION, 1 );
+	}
+
+	/**
+	 * Invalidate all cached digests by bumping the cache version.
+	 *
+	 * Hooked to post mutation actions so digests refresh when content changes.
+	 *
+	 * @return void
+	 */
+	public static function flush_cache(): void {
+		update_option( self::CACHE_VERSION_OPTION, self::get_cache_version() + 1 );
+	}
+
+	/**
+	 * Compute the (uncached) digest changes.
+	 *
+	 * @return array[] See {@see Digest::get_changes()} for the shape.
+	 */
+	private function compute_changes(): array {
 		$timeframe = $this->get_timeframe();
 		$modified  = $this->get_updated_posts( $timeframe );
 		$changes   = [];
