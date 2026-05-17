@@ -46,6 +46,13 @@ require_once __DIR__ . '/includes/class-digest.php';
 // Include the REST controller class.
 require_once __DIR__ . '/includes/class-rest-controller.php';
 
+// Include and register the WP-CLI command.
+require_once __DIR__ . '/includes/class-cli-command.php';
+
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+	\WP_CLI::add_command( 'revisions-digest', __NAMESPACE__ . '\CLI_Command' );
+}
+
 add_action(
 	'wp_dashboard_setup',
 	function () {

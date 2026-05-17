@@ -77,6 +77,19 @@ The class provides intelligent descriptions for changes:
 - **Backward compatibility**: all existing functions continue to work unchanged
 - **Clean API**: object-oriented interface with sensible defaults
 
+## WP-CLI
+
+When WP-CLI is available the plugin registers a `revisions-digest` command:
+
+```bash
+# List recent changes (defaults: --period=week --group-by=post --format=table)
+wp revisions-digest list
+wp revisions-digest list --period=month --group-by=user --format=json
+
+# Clear all cached digests
+wp revisions-digest flush-cache
+```
+
 ## Minimum Requirements
 
 **PHP:** 7.1  
