@@ -408,8 +408,22 @@ function render_subscription_list( array $subscriptions, string $nonce ): void {
  * }
  */
 function get_digest_changes(): array {
-	$digest = new Digest();
+	$digest = new Digest( get_configured_period() );
 	return $digest->get_changes();
+}
+
+/**
+ * Get the configured digest period.
+ *
+ * Reads the `revisions_digest_period` option, falling back to a weekly
+ * period when unset or invalid.
+ *
+ * @return string One of the Digest::PERIOD_* constants.
+ */
+function get_configured_period(): string {
+	$period = get_option( 'revisions_digest_period', Digest::PERIOD_WEEK );
+
+	return sanitize_period_setting( $period );
 }
 
 /**
@@ -1211,6 +1225,23 @@ function register_settings(): void {
 			'default'           => [ 'page' ],
 		]
 	);
+	register_setting(
+		'reading',
+		'revisions_digest_period',
+		[
+			'type'              => 'string',
+			'sanitize_callback' => __NAMESPACE__ . '\sanitize_period_setting',
+			'default'           => Digest::PERIOD_WEEK,
+		]
+	);
+
+	add_settings_field(
+		'revisions_digest_period',
+		__( 'Revisions Digest Period', 'revisions-digest' ),
+		__NAMESPACE__ . '\render_period_setting',
+		'reading',
+		'default'
+	);
 
 	add_settings_field(
 		'revisions_digest_post_types',
@@ -1240,6 +1271,46 @@ function sanitize_post_types_setting( $value ): array {
 		return [ 'page' ];
 	}
 	return array_map( 'sanitize_key', $value );
+}
+
+/**
+ * Sanitize the digest period setting.
+ *
+ * @param mixed $value The submitted value.
+ * @return string A valid Digest::PERIOD_* constant; defaults to weekly.
+ */
+function sanitize_period_setting( $value ): string {
+	$allowed = [ Digest::PERIOD_DAY, Digest::PERIOD_WEEK, Digest::PERIOD_MONTH ];
+
+	if ( is_string( $value ) && in_array( $value, $allowed, true ) ) {
+		return $value;
+	}
+
+	return Digest::PERIOD_WEEK;
+}
+
+/**
+ * Render the digest period setting dropdown.
+ */
+function render_period_setting(): void {
+	$selected = get_configured_period();
+	$options  = [
+		Digest::PERIOD_DAY   => __( 'Daily', 'revisions-digest' ),
+		Digest::PERIOD_WEEK  => __( 'Weekly', 'revisions-digest' ),
+		Digest::PERIOD_MONTH => __( 'Monthly', 'revisions-digest' ),
+	];
+
+	echo '<select name="revisions_digest_period" id="revisions_digest_period">';
+	foreach ( $options as $value => $label ) {
+		printf(
+			'<option value="%s" %s>%s</option>',
+			esc_attr( $value ),
+			selected( $selected, $value, false ),
+			esc_html( $label )
+		);
+	}
+	echo '</select>';
+	echo '<p class="description">' . esc_html__( 'How far back the dashboard widget and RSS feed look for content changes.', 'revisions-digest' ) . '</p>';
 }
 
 /**

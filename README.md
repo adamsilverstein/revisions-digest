@@ -11,7 +11,7 @@ Digests can be consumed via:
 * [ ] An RSS feed
 * [ ] A REST API endpoint
 
-The default duration for a digest is weekly. In a future version this will be configurable.
+The default duration for a digest is weekly. This can be changed to daily or monthly under **Settings → Reading → Revisions Digest Period**, which controls the dashboard widget and RSS feed.
 
 ## New Helper Class API
 
