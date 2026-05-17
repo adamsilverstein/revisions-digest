@@ -147,6 +147,7 @@ class Digest {
 			'g'  => $this->group_by,
 			't'  => $this->custom_timeframe,
 			'pt' => get_option( 'revisions_digest_post_types', [ 'page' ] ),
+			'w'  => $this->get_watch_config(),
 		];
 
 		return 'revisions_digest_' . md5( (string) wp_json_encode( $parts ) );
@@ -289,7 +290,68 @@ class Digest {
 			]
 		);
 
-		return $modified->posts;
+		$ids   = $modified->posts;
+		$watch = $this->get_watch_config();
+
+		if ( empty( $watch['post_ids'] ) && empty( $watch['term_ids'] ) ) {
+			return $ids;
+		}
+
+		// A watch list is configured: keep only posts that are explicitly
+		// watched or that belong to a watched term.
+		return array_values(
+			array_filter(
+				$ids,
+				function ( $post_id ) use ( $watch ) {
+					if ( in_array( $post_id, $watch['post_ids'], true ) ) {
+						return true;
+					}
+
+					foreach ( $watch['term_ids'] as $term_id ) {
+						$term = get_term( $term_id );
+						if ( ! $term instanceof \WP_Term ) {
+							continue;
+						}
+
+						if ( true === is_object_in_term( $post_id, $term->taxonomy, $term_id ) ) {
+							return true;
+						}
+					}
+
+					return false;
+				}
+			)
+		);
+	}
+
+	/**
+	 * Get the configured watch list.
+	 *
+	 * Returns watched post and term IDs from the `revisions_digest_watch`
+	 * option, run through the `revisions_digest_watch` filter. An empty list
+	 * (the default) means every modified post is included.
+	 *
+	 * @return array{post_ids: int[], term_ids: int[]} Watch configuration.
+	 */
+	private function get_watch_config(): array {
+		$default = [
+			'post_ids' => [],
+			'term_ids' => [],
+		];
+
+		$watch = get_option( 'revisions_digest_watch', $default );
+
+		/**
+		 * Filters the revisions digest watch list.
+		 *
+		 * @param array{post_ids: int[], term_ids: int[]} $watch Watched post and term IDs.
+		 */
+		$watch = apply_filters( 'revisions_digest_watch', is_array( $watch ) ? $watch : $default );
+
+		return [
+			'post_ids' => array_values( array_map( 'intval', (array) ( $watch['post_ids'] ?? [] ) ) ),
+			'term_ids' => array_values( array_map( 'intval', (array) ( $watch['term_ids'] ?? [] ) ) ),
+		];
 	}
 
 	/**
