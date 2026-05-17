@@ -251,6 +251,13 @@ function render_widget_content( array $changes ): void {
 				esc_html( $changes_by )
 			);
 
+			$change_type = $change['type'] ?? 'modified';
+			if ( 'added' === $change_type ) {
+				echo '<p class="revisions-digest-status">' . esc_html__( 'New content published in this period.', 'revisions-digest' ) . '</p>';
+			} elseif ( 'removed' === $change_type ) {
+				echo '<p class="revisions-digest-status">' . esc_html__( 'Content removed in this period.', 'revisions-digest' ) . '</p>';
+			}
+
 			if ( ! empty( $change['title_rendered'] ) ) {
 				echo '<h4>' . esc_html__( 'Title', 'revisions-digest' ) . '</h4>';
 				echo '<table class="diff">';
@@ -1129,6 +1136,13 @@ function get_email_content( array $changes, string $unsubscribe_url = '' ): stri
 					?>
 				</p>
 
+				<?php $change_type = $change['type'] ?? 'modified'; ?>
+				<?php if ( 'added' === $change_type ) : ?>
+					<p class="status"><?php esc_html_e( 'New content published in this period.', 'revisions-digest' ); ?></p>
+				<?php elseif ( 'removed' === $change_type ) : ?>
+					<p class="status"><?php esc_html_e( 'Content removed in this period.', 'revisions-digest' ); ?></p>
+				<?php endif; ?>
+
 				<?php if ( ! empty( $change['title_rendered'] ) ) : ?>
 					<h3><?php esc_html_e( 'Title', 'revisions-digest' ); ?></h3>
 					<table class="diff">
@@ -1728,14 +1742,21 @@ function render_feed(): void {
 				?>
 		<dc:creator><?php echo esc_html( $author ); ?></dc:creator>
 			<?php endforeach; ?>
-			<?php $rendered = str_replace( ']]>', ']]]]><![CDATA[>', $change['rendered'] ); ?>
+			<?php $change_type = $change['type'] ?? 'modified'; ?>
 		<description><![CDATA[
+			<?php if ( 'added' === $change_type ) : ?>
+				<p><?php esc_html_e( 'New content published in this period.', 'revisions-digest' ); ?></p>
+			<?php elseif ( 'removed' === $change_type ) : ?>
+				<p><?php esc_html_e( 'Content removed in this period.', 'revisions-digest' ); ?></p>
+			<?php else : ?>
+				<?php $rendered = str_replace( ']]>', ']]]]><![CDATA[>', (string) $change['rendered'] ); ?>
 			<table class="diff">
 				<?php
 				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $rendered contains safe HTML from WP_Text_Diff_Renderer_Table.
 				echo $rendered;
 				?>
 			</table>
+			<?php endif; ?>
 		]]></description>
 	</item>
 	<?php endforeach; ?>

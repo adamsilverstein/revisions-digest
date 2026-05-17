@@ -214,6 +214,7 @@ class Digest {
 
 			$data = [
 				'post_id'          => $modified_post_id,
+				'type'             => 'modified',
 				'latest'           => $bounds['latest'],
 				'earliest'         => $bounds['earliest'],
 				'diff'             => $diff,
@@ -226,7 +227,52 @@ class Digest {
 			$changes[] = $data;
 		}
 
+		$seen = wp_list_pluck( $changes, 'post_id' );
+
+		// Posts published in this period that aren't already shown as edits.
+		foreach ( $this->get_added_posts( $timeframe ) as $added_id ) {
+			if ( in_array( $added_id, $seen, true ) ) {
+				continue;
+			}
+			$changes[] = $this->build_simple_change( $added_id, 'added' );
+			$seen[]    = $added_id;
+		}
+
+		// Posts trashed in this period.
+		foreach ( $this->get_removed_posts( $timeframe ) as $removed_id ) {
+			if ( in_array( $removed_id, $seen, true ) ) {
+				continue;
+			}
+			$changes[] = $this->build_simple_change( $removed_id, 'removed' );
+			$seen[]    = $removed_id;
+		}
+
 		return $this->group_changes( $changes );
+	}
+
+	/**
+	 * Build a change entry for an added or removed post.
+	 *
+	 * These carry no diff; consumers key off the `type` field.
+	 *
+	 * @param int    $post_id The post ID.
+	 * @param string $type    Either 'added' or 'removed'.
+	 * @return array A change entry shaped like the modified entries.
+	 */
+	private function build_simple_change( int $post_id, string $type ): array {
+		$post = get_post( $post_id );
+
+		return [
+			'post_id'          => $post_id,
+			'type'             => $type,
+			'latest'           => $post,
+			'earliest'         => null,
+			'diff'             => null,
+			'rendered'         => '',
+			'title_rendered'   => '',
+			'excerpt_rendered' => '',
+			'authors'          => $post instanceof WP_Post ? [ (int) $post->post_author ] : [],
+		];
 	}
 
 	/**
@@ -267,30 +313,90 @@ class Digest {
 	 * @return int[] Array of post IDs.
 	 */
 	private function get_updated_posts( int $timeframe ): array {
-		$earliest = gmdate( 'Y-m-d H:i:s', $timeframe );
-
-		/**
-		 * Filters the post types included in the revisions digest.
-		 *
-		 * @param string[] $post_types Array of post type slugs. Default: array( 'page' ).
-		 */
-		$default_types = get_option( 'revisions_digest_post_types', [ 'page' ] );
-		$post_types    = apply_filters( 'revisions_digest_post_types', $default_types );
-
 		// Fetch IDs of all posts that have been modified within the time period.
 		$modified = new WP_Query(
 			[
 				'fields'      => 'ids',
-				'post_type'   => $post_types,
+				'post_type'   => $this->get_post_types(),
 				'post_status' => 'publish',
 				'date_query'  => [
-					'after'  => $earliest,
+					'after'  => gmdate( 'Y-m-d H:i:s', $timeframe ),
 					'column' => 'post_modified',
 				],
 			]
 		);
 
-		$ids   = $modified->posts;
+		return $this->apply_watch_filter( $modified->posts );
+	}
+
+	/**
+	 * Get posts first published within the timeframe.
+	 *
+	 * @param int $timeframe Only posts published after this timestamp.
+	 * @return int[] Array of post IDs.
+	 */
+	private function get_added_posts( int $timeframe ): array {
+		$added = new WP_Query(
+			[
+				'fields'      => 'ids',
+				'post_type'   => $this->get_post_types(),
+				'post_status' => 'publish',
+				'date_query'  => [
+					'after'  => gmdate( 'Y-m-d H:i:s', $timeframe ),
+					'column' => 'post_date',
+				],
+			]
+		);
+
+		return $this->apply_watch_filter( $added->posts );
+	}
+
+	/**
+	 * Get posts trashed within the timeframe.
+	 *
+	 * @param int $timeframe Only posts trashed after this timestamp.
+	 * @return int[] Array of post IDs.
+	 */
+	private function get_removed_posts( int $timeframe ): array {
+		$removed = new WP_Query(
+			[
+				'fields'      => 'ids',
+				'post_type'   => $this->get_post_types(),
+				'post_status' => 'trash',
+				'date_query'  => [
+					'after'  => gmdate( 'Y-m-d H:i:s', $timeframe ),
+					'column' => 'post_modified',
+				],
+			]
+		);
+
+		return $this->apply_watch_filter( $removed->posts );
+	}
+
+	/**
+	 * Get the post types included in the digest.
+	 *
+	 * @return string[] Array of post type slugs.
+	 */
+	private function get_post_types(): array {
+		/**
+		 * Filters the post types included in the revisions digest.
+		 *
+		 * @param string[] $post_types Array of post type slugs. Default: array( 'page' ).
+		 */
+		return apply_filters(
+			'revisions_digest_post_types',
+			get_option( 'revisions_digest_post_types', [ 'page' ] )
+		);
+	}
+
+	/**
+	 * Apply the configured watch list to a list of post IDs.
+	 *
+	 * @param int[] $ids Candidate post IDs.
+	 * @return int[] The IDs, filtered to the watch list when one is set.
+	 */
+	private function apply_watch_filter( array $ids ): array {
 		$watch = $this->get_watch_config();
 
 		if ( empty( $watch['post_ids'] ) && empty( $watch['term_ids'] ) ) {
@@ -606,8 +712,20 @@ class Digest {
 		}
 
 		$author_list = implode( ' and ', $authors );
-		$time_desc   = $this->get_time_description( $change['latest']->post_modified );
-		$size_desc   = $this->get_change_size_description( $change['diff'] );
+		$latest      = $change['latest'] ?? null;
+		$time_desc   = $latest instanceof WP_Post ? $this->get_time_description( $latest->post_modified ) : '';
+		$type        = $change['type'] ?? 'modified';
+		$title       = $latest instanceof WP_Post ? $latest->post_title : '';
+
+		if ( 'added' === $type ) {
+			return trim( sprintf( '%s added "%s" %s', $author_list, $title, $time_desc ) );
+		}
+
+		if ( 'removed' === $type ) {
+			return trim( sprintf( '%s removed "%s" %s', $author_list, $title, $time_desc ) );
+		}
+
+		$size_desc = $this->get_change_size_description( $change['diff'] );
 
 		return sprintf(
 			'%s made %s %s',

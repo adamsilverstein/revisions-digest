@@ -63,6 +63,16 @@ class Test_Settings extends TestCase {
 		wp_save_post_revision( $page->ID );
 
 		global $wpdb;
+		// Backdate the page's publish date too so it isn't picked up as a
+		// newly "added" post, isolating the configured-period (modified) path.
+		$wpdb->update(
+			$wpdb->posts,
+			[
+				'post_date'     => date( 'Y-m-d H:i:s', $five_days_ago ),
+				'post_date_gmt' => gmdate( 'Y-m-d H:i:s', $five_days_ago ),
+			],
+			[ 'ID' => $page->ID ]
+		);
 		$ids = array_merge( [ $page->ID ], wp_list_pluck( wp_get_post_revisions( $page->ID ), 'ID' ) );
 		foreach ( $ids as $id ) {
 			$wpdb->update(
