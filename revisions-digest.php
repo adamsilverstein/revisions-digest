@@ -1235,10 +1235,31 @@ function register_settings(): void {
 		]
 	);
 
+	register_setting(
+		'reading',
+		'revisions_digest_watch',
+		[
+			'type'              => 'object',
+			'sanitize_callback' => __NAMESPACE__ . '\sanitize_watch_setting',
+			'default'           => [
+				'post_ids' => [],
+				'term_ids' => [],
+			],
+		]
+	);
+
 	add_settings_field(
 		'revisions_digest_period',
 		__( 'Revisions Digest Period', 'revisions-digest' ),
 		__NAMESPACE__ . '\render_period_setting',
+		'reading',
+		'default'
+	);
+
+	add_settings_field(
+		'revisions_digest_watch',
+		__( 'Revisions Digest Watch List', 'revisions-digest' ),
+		__NAMESPACE__ . '\render_watch_setting',
 		'reading',
 		'default'
 	);
@@ -1287,6 +1308,70 @@ function sanitize_period_setting( $value ): string {
 	}
 
 	return Digest::PERIOD_WEEK;
+}
+
+/**
+ * Sanitize the watch list setting.
+ *
+ * Accepts comma-separated ID strings (or arrays) for `post_ids` and
+ * `term_ids` and normalizes them to arrays of positive integers.
+ *
+ * @param mixed $value The submitted value.
+ * @return array{post_ids: int[], term_ids: int[]} Sanitized watch list.
+ */
+function sanitize_watch_setting( $value ): array {
+	$clean = [
+		'post_ids' => [],
+		'term_ids' => [],
+	];
+
+	if ( ! is_array( $value ) ) {
+		return $clean;
+	}
+
+	foreach ( [ 'post_ids', 'term_ids' ] as $key ) {
+		$raw = $value[ $key ] ?? [];
+
+		if ( is_string( $raw ) ) {
+			$raw = explode( ',', $raw );
+		}
+
+		if ( ! is_array( $raw ) ) {
+			continue;
+		}
+
+		$ids = array_filter( array_map( 'absint', array_map( 'trim', array_map( 'strval', $raw ) ) ) );
+
+		$clean[ $key ] = array_values( array_unique( $ids ) );
+	}
+
+	return $clean;
+}
+
+/**
+ * Render the watch list setting fields.
+ */
+function render_watch_setting(): void {
+	$watch    = get_option(
+		'revisions_digest_watch',
+		[
+			'post_ids' => [],
+			'term_ids' => [],
+		]
+	);
+	$post_ids = implode( ', ', (array) ( $watch['post_ids'] ?? [] ) );
+	$term_ids = implode( ', ', (array) ( $watch['term_ids'] ?? [] ) );
+	?>
+	<label style="display:block; margin-bottom:6px;">
+		<?php esc_html_e( 'Watched post IDs', 'revisions-digest' ); ?><br />
+		<input type="text" class="regular-text" name="revisions_digest_watch[post_ids]" value="<?php echo esc_attr( $post_ids ); ?>" placeholder="e.g. 12, 34" />
+	</label>
+	<label style="display:block; margin-bottom:6px;">
+		<?php esc_html_e( 'Watched term IDs', 'revisions-digest' ); ?><br />
+		<input type="text" class="regular-text" name="revisions_digest_watch[term_ids]" value="<?php echo esc_attr( $term_ids ); ?>" placeholder="e.g. 7, 8" />
+	</label>
+	<p class="description"><?php esc_html_e( 'Comma-separated IDs. When set, the digest only includes these posts and any post in these terms. Leave both empty to include all changes.', 'revisions-digest' ); ?></p>
+	<?php
 }
 
 /**
