@@ -90,6 +90,21 @@ wp revisions-digest list --period=month --group-by=user --format=json
 wp revisions-digest flush-cache
 ```
 
+## Webhooks
+
+Add one or more http(s) URLs under **Settings → Reading → Revisions Digest Webhooks** (one per line). Once per digest period a JSON summary is POSTed to each URL:
+
+```json
+{
+  "text": "Example Site — 3 content changes in the latest digest.",
+  "changes": [
+    { "post_id": 42, "title": "Getting Started", "link": "https://…", "authors": 2 }
+  ]
+}
+```
+
+The top-level `text` field works directly with Slack incoming webhooks. Customize the body with the `revisions_digest_webhook_payload` filter.
+
 ## Minimum Requirements
 
 **PHP:** 7.1  
