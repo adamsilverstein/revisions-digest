@@ -782,6 +782,170 @@ function get_timeframe_for_frequency( string $frequency ): string {
 }
 
 /**
+ * Get the seconds in one configured-period interval.
+ *
+ * @param string $period A Digest::PERIOD_* constant.
+ * @return int Interval length in seconds.
+ */
+function get_period_interval( string $period ): int {
+	switch ( $period ) {
+		case Digest::PERIOD_DAY:
+			return DAY_IN_SECONDS;
+		case Digest::PERIOD_MONTH:
+			return MONTH_IN_SECONDS;
+		case Digest::PERIOD_WEEK:
+		default:
+			return WEEK_IN_SECONDS;
+	}
+}
+
+/**
+ * Determine whether a webhook digest is due for the given period.
+ *
+ * @param int    $last_sent Timestamp of the last delivery (0 if never).
+ * @param string $period    A Digest::PERIOD_* constant.
+ * @return bool Whether a delivery is due.
+ */
+function webhook_due( int $last_sent, string $period ): bool {
+	return ( time() - $last_sent ) >= get_period_interval( $period );
+}
+
+/**
+ * Sanitize the webhook URLs setting.
+ *
+ * Accepts a newline/comma separated string (or array) and keeps only
+ * valid http(s) URLs.
+ *
+ * @param mixed $value The submitted value.
+ * @return string[] Sanitized list of webhook URLs.
+ */
+function sanitize_webhook_urls_setting( $value ): array {
+	if ( is_string( $value ) ) {
+		$value = preg_split( '/[\r\n,]+/', $value );
+		if ( false === $value ) {
+			return [];
+		}
+	}
+
+	if ( ! is_array( $value ) ) {
+		return [];
+	}
+
+	$urls = [];
+	foreach ( $value as $candidate ) {
+		$candidate = trim( (string) $candidate );
+
+		// Require an explicit http(s) scheme; esc_url_raw() would otherwise
+		// coerce bare text into a bogus "http://..." URL.
+		if ( ! preg_match( '#^https?://#i', $candidate ) ) {
+			continue;
+		}
+
+		$url = esc_url_raw( $candidate, [ 'http', 'https' ] );
+		if ( '' !== $url ) {
+			$urls[] = $url;
+		}
+	}
+
+	return array_values( array_unique( $urls ) );
+}
+
+/**
+ * Build the webhook payload for a set of digest changes.
+ *
+ * The default shape is Slack-friendly (a top-level `text` summary) while
+ * also exposing a structured `changes` array for generic consumers.
+ *
+ * @param array $changes Output of get_digest_changes().
+ * @return array The payload, filterable via `revisions_digest_webhook_payload`.
+ */
+function build_webhook_payload( array $changes ): array {
+	$entries = [];
+	foreach ( $changes as $change ) {
+		if ( ! is_array( $change ) || ! isset( $change['post_id'] ) ) {
+			continue;
+		}
+
+		$latest = $change['latest'] ?? null;
+
+		$entries[] = [
+			'post_id' => (int) $change['post_id'],
+			'title'   => $latest instanceof \WP_Post ? $latest->post_title : '',
+			'link'    => get_edit_post_link( (int) $change['post_id'], 'raw' ) ?? '',
+			'authors' => count( (array) ( $change['authors'] ?? [] ) ),
+		];
+	}
+
+	$count = count( $entries );
+
+	$payload = [
+		'text'    => sprintf(
+			/* translators: 1: site name, 2: number of changes. */
+			_n(
+				'%1$s — %2$d content change in the latest digest.',
+				'%1$s — %2$d content changes in the latest digest.',
+				$count,
+				'revisions-digest'
+			),
+			get_bloginfo( 'name' ),
+			$count
+		),
+		'changes' => $entries,
+	];
+
+	/**
+	 * Filters the revisions digest webhook payload.
+	 *
+	 * @param array $payload The payload to send.
+	 * @param array $changes The raw digest changes.
+	 */
+	return apply_filters( 'revisions_digest_webhook_payload', $payload, $changes );
+}
+
+/**
+ * Deliver the digest to any configured webhook URLs when due.
+ *
+ * @return void
+ */
+function send_digest_webhooks(): void {
+	$urls = sanitize_webhook_urls_setting( get_option( 'revisions_digest_webhook_urls', [] ) );
+	if ( empty( $urls ) ) {
+		return;
+	}
+
+	$period = get_configured_period();
+	if ( ! webhook_due( (int) get_option( 'revisions_digest_webhook_last_sent', 0 ), $period ) ) {
+		return;
+	}
+
+	$payload = build_webhook_payload( get_digest_changes() );
+	$body    = (string) wp_json_encode( $payload );
+
+	foreach ( $urls as $url ) {
+		$response = wp_remote_post(
+			$url,
+			[
+				'timeout' => 10,
+				'headers' => [ 'Content-Type' => 'application/json' ],
+				'body'    => $body,
+			]
+		);
+
+		if ( is_wp_error( $response ) && defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( 'Revisions Digest webhook failed: ' . $response->get_error_message() );
+		}
+	}
+
+	update_option( 'revisions_digest_webhook_last_sent', time() );
+}
+
+/**
+ * Send digest webhooks on the existing hourly cron run.
+ */
+add_action( 'revisions_digest_send_emails', __NAMESPACE__ . '\send_digest_webhooks' );
+
+/**
  * Get digest changes for a specific timeframe.
  *
  * @param string $timeframe The timeframe string for strtotime.
@@ -1255,10 +1419,28 @@ function register_settings(): void {
 		]
 	);
 
+	register_setting(
+		'reading',
+		'revisions_digest_webhook_urls',
+		[
+			'type'              => 'array',
+			'sanitize_callback' => __NAMESPACE__ . '\sanitize_webhook_urls_setting',
+			'default'           => [],
+		]
+	);
+
 	add_settings_field(
 		'revisions_digest_period',
 		__( 'Revisions Digest Period', 'revisions-digest' ),
 		__NAMESPACE__ . '\render_period_setting',
+		'reading',
+		'default'
+	);
+
+	add_settings_field(
+		'revisions_digest_webhook_urls',
+		__( 'Revisions Digest Webhooks', 'revisions-digest' ),
+		__NAMESPACE__ . '\render_webhook_urls_setting',
 		'reading',
 		'default'
 	);
@@ -1353,6 +1535,20 @@ function sanitize_watch_setting( $value ): array {
 	}
 
 	return $clean;
+}
+
+/**
+ * Render the webhook URLs setting field.
+ */
+function render_webhook_urls_setting(): void {
+	$urls = sanitize_webhook_urls_setting( get_option( 'revisions_digest_webhook_urls', [] ) );
+	?>
+	<label style="display:block; margin-bottom:6px;">
+		<?php esc_html_e( 'Webhook URLs', 'revisions-digest' ); ?><br />
+		<textarea class="large-text code" rows="3" name="revisions_digest_webhook_urls" placeholder="https://hooks.slack.com/services/..."><?php echo esc_textarea( implode( "\n", $urls ) ); ?></textarea>
+	</label>
+	<p class="description"><?php esc_html_e( 'One http(s) URL per line. Each digest period a JSON summary (Slack-compatible) is POSTed to these URLs. Leave empty to disable.', 'revisions-digest' ); ?></p>
+	<?php
 }
 
 /**
