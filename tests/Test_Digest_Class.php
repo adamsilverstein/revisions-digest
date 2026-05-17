@@ -147,11 +147,15 @@ class Test_Digest_Class extends TestCase {
 		] );
 		wp_save_post_revision( $page->ID );
 
-		// Fix the page post_modified to the desired timestamp.
+		// Fix the page dates: it was created at the old timestamp and last
+		// modified at the new one. post_date matters now that newly published
+		// posts surface as "added" entries.
 		global $wpdb;
 		$wpdb->update(
 			$wpdb->posts,
 			[
+				'post_date'         => date( 'Y-m-d H:i:s', $old_timestamp ),
+				'post_date_gmt'     => gmdate( 'Y-m-d H:i:s', $old_timestamp ),
 				'post_modified'     => date( 'Y-m-d H:i:s', $new_timestamp ),
 				'post_modified_gmt' => gmdate( 'Y-m-d H:i:s', $new_timestamp ),
 			],

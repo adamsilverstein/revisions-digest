@@ -71,6 +71,7 @@ The class provides intelligent descriptions for changes:
 
 ## Features
 
+- **Full lifecycle**: edits, newly published content, and removed (trashed) content
 - **Multiple time periods**: day, week, month, or custom timeframes
 - **Flexible grouping**: by date, user, post, or taxonomy
 - **Intelligent descriptions**: contextual descriptions of who changed what and when
