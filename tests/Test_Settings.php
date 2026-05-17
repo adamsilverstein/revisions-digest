@@ -63,7 +63,8 @@ class Test_Settings extends TestCase {
 		wp_save_post_revision( $page->ID );
 
 		global $wpdb;
-		foreach ( [ $page->ID, ...wp_list_pluck( wp_get_post_revisions( $page->ID ), 'ID' ) ] as $id ) {
+		$ids = array_merge( [ $page->ID ], wp_list_pluck( wp_get_post_revisions( $page->ID ), 'ID' ) );
+		foreach ( $ids as $id ) {
 			$wpdb->update(
 				$wpdb->posts,
 				[
